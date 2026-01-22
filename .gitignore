@@ -1,0 +1,55 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# CMake
+/build/
+/build_*/
+/cmake-build-*/
+/out/
+CMakeCache.txt
+CMakeFiles/
+*.cmake
+!CMakeLists.txt
+*.moved-aside
+
+# JUCE
+/JuceLibraryCode/
+/Builds/
+*.jucer
+
+# Xcode
+*.xcodeproj
+*.xcworkspace
+*.pbuser
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+xcuserdata/
+
+# Visual Studio Code
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+!.vscode/c_cpp_properties.json
+.history/
+
+# Clangd / LSP
+.cache/
+compile_commands.json
+
+# Binaries
+*.o
+*.obj
+*.dll
+*.dylib
+*.so
+*.exe
+*.vst3
+*.component
+*.a
+*.lib
