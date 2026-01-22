@@ -14,5 +14,16 @@ public:
 private:
   MySynthAudioProcessor &audioProcessor;
 
+  juce::Slider attackSlider;
+  juce::Slider releaseSlider;
+  juce::ComboBox oscSelector;
+
+  std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>
+      attackAttachment;
+  std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>
+      releaseAttachment;
+  std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment>
+      oscAttachment;
+
   JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MySynthAudioProcessorEditor)
 };
