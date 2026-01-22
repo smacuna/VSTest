@@ -26,12 +26,14 @@ public:
                        int numSamples) override;
 
   // Métodos para actualizar parámetros sin bloquear
-  void updateParameters(float attack, float release, float oscType);
+  void updateParameters(float attack, float decay, float sustain, float release,
+                        float oscType, float cutoff, float resonance);
 
 private:
   juce::dsp::Oscillator<float> oscillator;
   juce::dsp::Gain<float> gain;
   juce::ADSR adsr;
+  juce::dsp::StateVariableTPTFilter<float> filter;
   juce::AudioBuffer<float> tempBuffer;
 
   juce::dsp::ProcessSpec spec;

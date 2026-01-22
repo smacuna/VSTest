@@ -49,6 +49,10 @@ private:
   std::atomic<float> *attackParam = nullptr;
   std::atomic<float> *releaseParam = nullptr;
   std::atomic<float> *oscTypeParam = nullptr;
+  std::atomic<float> *decayParam = nullptr;
+  std::atomic<float> *sustainParam = nullptr;
+  std::atomic<float> *cutoffParam = nullptr;
+  std::atomic<float> *resonanceParam = nullptr;
 
   JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MySynthAudioProcessor)
 };

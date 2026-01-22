@@ -45,6 +45,8 @@ void SynthVoice::prepareToPlay(double sampleRate, int samplesPerBlock,
 
   oscillator.prepare(spec);
   gain.prepare(spec);
+  filter.prepare(spec);
+  filter.setType(juce::dsp::StateVariableTPTFilterType::lowpass);
 
   adsr.setSampleRate(sampleRate);
 
@@ -59,12 +61,20 @@ void SynthVoice::prepareToPlay(double sampleRate, int samplesPerBlock,
   adsr.setParameters(adsrParams);
 }
 
-void SynthVoice::updateParameters(float attack, float release, float oscType) {
+void SynthVoice::updateParameters(float attack, float decay, float sustain,
+                                  float release, float oscType, float cutoff,
+                                  float resonance) {
   // Update ADSR
   auto adsrParams = adsr.getParameters();
   adsrParams.attack = attack;
+  adsrParams.decay = decay;
+  adsrParams.sustain = sustain;
   adsrParams.release = release;
   adsr.setParameters(adsrParams);
+
+  // Update Filter
+  filter.setCutoffFrequency(cutoff);
+  filter.setResonance(resonance);
 
   // Update Oscillator Type safely
   int type = static_cast<int>(oscType);
@@ -102,6 +112,9 @@ void SynthVoice::renderNextBlock(juce::AudioBuffer<float> &outputBuffer,
 
   // Process Chain
   oscillator.process(context);
+
+  // Apply Filter
+  filter.process(context);
 
   // Apply ADSR to the temp buffer
   adsr.applyEnvelopeToBuffer(tempBuffer, 0, numSamples);

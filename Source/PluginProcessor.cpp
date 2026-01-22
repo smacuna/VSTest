@@ -25,6 +25,10 @@ MySynthAudioProcessor::MySynthAudioProcessor()
   attackParam = apvts.getRawParameterValue("attack");
   releaseParam = apvts.getRawParameterValue("release");
   oscTypeParam = apvts.getRawParameterValue("oscType");
+  decayParam = apvts.getRawParameterValue("decay");
+  sustainParam = apvts.getRawParameterValue("sustain");
+  cutoffParam = apvts.getRawParameterValue("cutoff");
+  resonanceParam = apvts.getRawParameterValue("resonance");
 }
 
 MySynthAudioProcessor::~MySynthAudioProcessor() {}
@@ -37,6 +41,19 @@ MySynthAudioProcessor::createParameterLayout() {
                                                          0.01f, 1.0f, 0.1f));
   layout.add(std::make_unique<juce::AudioParameterFloat>("release", "Release",
                                                          0.1f, 3.0f, 0.4f));
+
+  // ADSR: Decay & Sustain
+  layout.add(std::make_unique<juce::AudioParameterFloat>("decay", "Decay", 0.1f,
+                                                         3.0f, 0.5f));
+  layout.add(std::make_unique<juce::AudioParameterFloat>("sustain", "Sustain",
+                                                         0.0f, 1.0f, 1.0f));
+
+  // Filter: Cutoff & Resonance
+  layout.add(std::make_unique<juce::AudioParameterFloat>(
+      "cutoff", "Cutoff",
+      juce::NormalisableRange<float>(20.0f, 20000.0f, 1.0f, 0.5f), 1000.0f));
+  layout.add(std::make_unique<juce::AudioParameterFloat>(
+      "resonance", "Resonance", 1.0f, 10.0f, 1.0f));
 
   juce::StringArray oscChoices;
   oscChoices.add("Sine");
@@ -151,12 +168,18 @@ void MySynthAudioProcessor::processBlock(juce::AudioBuffer<float> &buffer,
   // Update parameters
   float currentAttack = attackParam->load();
   float currentRelease = releaseParam->load();
+  float currentDecay = decayParam->load();
+  float currentSustain = sustainParam->load();
   float currentOscType = oscTypeParam->load();
+  float currentCutoff = cutoffParam->load();
+  float currentResonance = resonanceParam->load();
 
   // Propagate parameters to voices
   for (int i = 0; i < synthesiser.getNumVoices(); ++i) {
     if (auto voice = dynamic_cast<SynthVoice *>(synthesiser.getVoice(i))) {
-      voice->updateParameters(currentAttack, currentRelease, currentOscType);
+      voice->updateParameters(currentAttack, currentDecay, currentSustain,
+                              currentRelease, currentOscType, currentCutoff,
+                              currentResonance);
     }
   }
 
