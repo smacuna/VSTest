@@ -29,6 +29,7 @@ MySynthAudioProcessor::MySynthAudioProcessor()
   sustainParam = apvts.getRawParameterValue("sustain");
   cutoffParam = apvts.getRawParameterValue("cutoff");
   resonanceParam = apvts.getRawParameterValue("resonance");
+  chordModeParam = apvts.getRawParameterValue("chordMode");
 }
 
 MySynthAudioProcessor::~MySynthAudioProcessor() {}
@@ -62,6 +63,9 @@ MySynthAudioProcessor::createParameterLayout() {
 
   layout.add(std::make_unique<juce::AudioParameterChoice>(
       "oscType", "Oscillator Type", oscChoices, 0));
+
+  layout.add(std::make_unique<juce::AudioParameterBool>("chordMode",
+                                                        "Chord Mode", true));
 
   return layout;
 }
@@ -186,113 +190,119 @@ void MySynthAudioProcessor::processBlock(juce::AudioBuffer<float> &buffer,
   // 1. Process MIDI for Chord Mode
   juce::MidiBuffer processedMidi;
 
-  for (const auto metadata : midiMessages) {
-    auto message = metadata.getMessage();
-    const auto noteNumber = message.getNoteNumber();
-    const auto velocity = message.getFloatVelocity();
+  bool isChordModeOn = *chordModeParam > 0.5f;
 
-    // ---- HANDLER FOR MODIFIERS (Octave 4: 60-71) ----
-    if (noteNumber >= 60 && noteNumber <= 71) {
-      bool isNoteOn = message.isNoteOn();
+  if (isChordModeOn) {
+    for (const auto metadata : midiMessages) {
+      auto message = metadata.getMessage();
+      const auto noteNumber = message.getNoteNumber();
+      const auto velocity = message.getFloatVelocity();
 
-      // Triads
-      if (noteNumber == 61)
-        isDimPressed = isNoteOn; // C#4
-      if (noteNumber == 63)
-        isMinPressed = isNoteOn; // D#4
-      if (noteNumber == 66)
-        isMajPressed = isNoteOn; // F#4
-      if (noteNumber == 68)
-        isSus2Pressed = isNoteOn; // G#4
+      // ---- HANDLER FOR MODIFIERS (Octave 4: 60-71) ----
+      if (noteNumber >= 60 && noteNumber <= 71) {
+        bool isNoteOn = message.isNoteOn();
 
-      // Extensions
-      if (noteNumber == 60)
-        is6Pressed = isNoteOn; // C4
-      if (noteNumber == 62)
-        isMin7Pressed = isNoteOn; // D4
-      if (noteNumber == 65)
-        isMaj7Pressed = isNoteOn; // F4
-      if (noteNumber == 67)
-        is9Pressed = isNoteOn; // G4
+        // Triads
+        if (noteNumber == 61)
+          isDimPressed = isNoteOn; // C#4
+        if (noteNumber == 63)
+          isMinPressed = isNoteOn; // D#4
+        if (noteNumber == 66)
+          isMajPressed = isNoteOn; // F#4
+        if (noteNumber == 68)
+          isSus2Pressed = isNoteOn; // G#4
 
-      // Consume modifier keys (don't play them)
-      continue;
-    }
+        // Extensions
+        if (noteNumber == 60)
+          is6Pressed = isNoteOn; // C4
+        if (noteNumber == 62)
+          isMin7Pressed = isNoteOn; // D4
+        if (noteNumber == 65)
+          isMaj7Pressed = isNoteOn; // F4
+        if (noteNumber == 67)
+          is9Pressed = isNoteOn; // G4
 
-    // ---- HANDLER FOR TRIGGER KEYS (Octave 5: 72-83) ----
-    if (noteNumber >= 72 && noteNumber <= 83) {
-      if (message.isNoteOn()) {
-        // GLITCH FIX: Check if this trigger is already active.
-        // If so, force NoteOffs for the OLD intervals before starting new ones.
-        if (activeChordIntervals.count(noteNumber)) {
-          auto oldIntervals = activeChordIntervals[noteNumber];
+        // Consume modifier keys (don't play them)
+        continue;
+      }
 
-          // Send NoteOff for Root
-          processedMidi.addEvent(
-              juce::MidiMessage::noteOff(message.getChannel(), noteNumber,
-                                         velocity),
-              metadata.samplePosition);
+      // ---- HANDLER FOR TRIGGER KEYS (Octave 5: 72-83) ----
+      if (noteNumber >= 72 && noteNumber <= 83) {
+        if (message.isNoteOn()) {
+          // GLITCH FIX: Check if this trigger is already active.
+          // If so, force NoteOffs for the OLD intervals before starting new
+          // ones.
+          if (activeChordIntervals.count(noteNumber)) {
+            auto oldIntervals = activeChordIntervals[noteNumber];
 
-          // Send NoteOffs for Old Intervals
-          for (int interval : oldIntervals) {
-            auto oldNote = noteNumber + interval;
-            if (oldNote <= 127) {
-              processedMidi.addEvent(
-                  juce::MidiMessage::noteOff(message.getChannel(), oldNote,
-                                             velocity),
-                  metadata.samplePosition);
+            // Send NoteOff for Root
+            processedMidi.addEvent(
+                juce::MidiMessage::noteOff(message.getChannel(), noteNumber,
+                                           velocity),
+                metadata.samplePosition);
+
+            // Send NoteOffs for Old Intervals
+            for (int interval : oldIntervals) {
+              auto oldNote = noteNumber + interval;
+              if (oldNote <= 127) {
+                processedMidi.addEvent(
+                    juce::MidiMessage::noteOff(message.getChannel(), oldNote,
+                                               velocity),
+                    metadata.samplePosition);
+              }
             }
+            activeChordIntervals.erase(noteNumber);
           }
-          activeChordIntervals.erase(noteNumber);
-        }
 
-        auto intervals = getNoteIntervals();
+          auto intervals = getNoteIntervals();
 
-        if (!intervals.empty()) {
-          activeChordIntervals[noteNumber] = intervals;
+          if (!intervals.empty()) {
+            activeChordIntervals[noteNumber] = intervals;
 
-          // Add Root
-          processedMidi.addEvent(message, metadata.samplePosition);
-          // Add Intervals
-          for (int interval : intervals) {
-            auto newNote = noteNumber + interval;
-            if (newNote <= 127) {
-              processedMidi.addEvent(
-                  juce::MidiMessage::noteOn(message.getChannel(), newNote,
-                                            velocity),
-                  metadata.samplePosition);
+            // Add Root
+            processedMidi.addEvent(message, metadata.samplePosition);
+            // Add Intervals
+            for (int interval : intervals) {
+              auto newNote = noteNumber + interval;
+              if (newNote <= 127) {
+                processedMidi.addEvent(
+                    juce::MidiMessage::noteOn(message.getChannel(), newNote,
+                                              velocity),
+                    metadata.samplePosition);
+              }
             }
+            continue; // Handled
           }
-          continue; // Handled
-        }
-      } else if (message.isNoteOff()) {
-        // Check if this note was triggered as a chord
-        if (activeChordIntervals.count(noteNumber)) {
-          auto intervals = activeChordIntervals[noteNumber];
+        } else if (message.isNoteOff()) {
+          // Check if this note was triggered as a chord
+          if (activeChordIntervals.count(noteNumber)) {
+            auto intervals = activeChordIntervals[noteNumber];
 
-          // Add Root Off
-          processedMidi.addEvent(message, metadata.samplePosition);
-          // Add Intervals Off
-          for (int interval : intervals) {
-            auto newNote = noteNumber + interval;
-            if (newNote <= 127) {
-              processedMidi.addEvent(
-                  juce::MidiMessage::noteOff(message.getChannel(), newNote,
-                                             velocity),
-                  metadata.samplePosition);
+            // Add Root Off
+            processedMidi.addEvent(message, metadata.samplePosition);
+            // Add Intervals Off
+            for (int interval : intervals) {
+              auto newNote = noteNumber + interval;
+              if (newNote <= 127) {
+                processedMidi.addEvent(
+                    juce::MidiMessage::noteOff(message.getChannel(), newNote,
+                                               velocity),
+                    metadata.samplePosition);
+              }
             }
+            activeChordIntervals.erase(noteNumber);
+            continue; // Handled
           }
-          activeChordIntervals.erase(noteNumber);
-          continue; // Handled
         }
       }
+
+      // Pass through other notes (and Octave 3 if no modifiers active)
+      processedMidi.addEvent(message, metadata.samplePosition);
     }
 
-    // Pass through other notes (and Octave 3 if no modifiers active)
-    processedMidi.addEvent(message, metadata.samplePosition);
+    midiMessages.swapWith(processedMidi);
   }
-
-  midiMessages.swapWith(processedMidi);
+  // If not Chord Mode, just pass through (midiMessages stays as is)
 
   // Render Audio
   synthesiser.renderNextBlock(buffer, midiMessages, 0, buffer.getNumSamples());

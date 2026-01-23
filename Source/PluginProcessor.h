@@ -53,6 +53,7 @@ private:
   std::atomic<float> *sustainParam = nullptr;
   std::atomic<float> *cutoffParam = nullptr;
   std::atomic<float> *resonanceParam = nullptr;
+  std::atomic<float> *chordModeParam = nullptr;
 
   // Chord Mode internal state
   // Triad Modifiers

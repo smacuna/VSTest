@@ -49,9 +49,14 @@ MySynthAudioProcessorEditor::MySynthAudioProcessorEditor(
   oscSelector.addItem("Square", 3);
   addAndMakeVisible(oscSelector);
 
-  oscAttachment =
-      std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
-          audioProcessor.apvts, "oscType", oscSelector);
+  std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
+      audioProcessor.apvts, "oscType", oscSelector);
+
+  // Chord Mode Toggle
+  addAndMakeVisible(chordModeToggle);
+  chordModeAttachment =
+      std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
+          audioProcessor.apvts, "chordMode", chordModeToggle);
 
   // Cutoff Slider
   cutoffSlider.setSliderStyle(
@@ -132,8 +137,13 @@ void MySynthAudioProcessorEditor::resized() {
 
   // Oscillator selector at the top
   auto topArea = area.removeFromTop(40);
-  topArea.removeFromLeft(80); // Skip label area
-  oscSelector.setBounds(topArea.reduced(0, 5));
+  auto labelArea = topArea.removeFromLeft(80); // Skip label area
+
+  // Split top area for Osc and Toggle
+  oscSelector.setBounds(topArea.removeFromLeft(100).reduced(0, 5));
+
+  // Toggle Button
+  chordModeToggle.setBounds(topArea.removeFromLeft(100).reduced(0, 5));
 
   // Sliders area
   auto sliderArea = area.removeFromTop(200);

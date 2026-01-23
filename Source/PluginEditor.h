@@ -38,6 +38,10 @@ private:
   std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>
       resAttachment;
 
+  juce::ToggleButton chordModeToggle{"Chord Mode"};
+  std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment>
+      chordModeAttachment;
+
   MyLookAndFeel myLookAndFeel;
 
   JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MySynthAudioProcessorEditor)
