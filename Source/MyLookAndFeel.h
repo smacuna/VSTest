@@ -52,7 +52,7 @@ public:
 
     // Arc
     juce::Path arc;
-    arc.addCentredArc(centreX, centreY, radius * 0.8f, radius * 0.8f, 0.0f,
+    arc.addCentredArc(centreX, centreY, radius * 0.85f, radius * 0.85f, 0.0f,
                       rotaryStartAngle, angle, true);
     g.setColour(juce::Colours::cyan.withAlpha(0.8f));
     g.strokePath(arc, juce::PathStrokeType(4.0f));

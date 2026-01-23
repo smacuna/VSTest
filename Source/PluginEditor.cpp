@@ -9,7 +9,7 @@ MySynthAudioProcessorEditor::MySynthAudioProcessorEditor(
 
   // Attack Slider
   attackSlider.setSliderStyle(juce::Slider::SliderStyle::LinearVertical);
-  attackSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, true, 50, 25);
+  attackSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 50, 25);
   addAndMakeVisible(attackSlider);
 
   attackAttachment =
@@ -18,7 +18,7 @@ MySynthAudioProcessorEditor::MySynthAudioProcessorEditor(
 
   // Decay Slider
   decaySlider.setSliderStyle(juce::Slider::SliderStyle::LinearVertical);
-  decaySlider.setTextBoxStyle(juce::Slider::TextBoxBelow, true, 50, 25);
+  decaySlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 50, 25);
   addAndMakeVisible(decaySlider);
 
   decayAttachment =
@@ -27,7 +27,7 @@ MySynthAudioProcessorEditor::MySynthAudioProcessorEditor(
 
   // Sustain Slider
   sustainSlider.setSliderStyle(juce::Slider::SliderStyle::LinearVertical);
-  sustainSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, true, 50, 25);
+  sustainSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 50, 25);
   addAndMakeVisible(sustainSlider);
 
   sustainAttachment =
@@ -36,7 +36,7 @@ MySynthAudioProcessorEditor::MySynthAudioProcessorEditor(
 
   // Release Slider
   releaseSlider.setSliderStyle(juce::Slider::SliderStyle::LinearVertical);
-  releaseSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, true, 50, 25);
+  releaseSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, 50, 25);
   addAndMakeVisible(releaseSlider);
 
   releaseAttachment =
@@ -88,8 +88,7 @@ void MySynthAudioProcessorEditor::paint(juce::Graphics &g) {
   auto topArea = area.removeFromTop(40);
   auto labelArea = topArea.removeFromLeft(80);
 
-  g.drawFittedText("Oscillator", labelArea, juce::Justification::centredRight,
-                   1);
+  g.drawFittedText("Oscillator", labelArea, juce::Justification::centred, 1);
 
   auto sliderArea = area.removeFromTop(200);
   const auto sliderWidth = sliderArea.getWidth() / 4;

@@ -1,0 +1,13 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug MySynth (Standalone)",
+            "type": "lldb",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/MySynth_artefacts/Standalone/MySynth.app/Contents/MacOS/MySynth",
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}
