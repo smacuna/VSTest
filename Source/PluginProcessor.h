@@ -54,5 +54,25 @@ private:
   std::atomic<float> *cutoffParam = nullptr;
   std::atomic<float> *resonanceParam = nullptr;
 
+  // Chord Mode internal state
+  // Triad Modifiers
+  std::atomic<bool> isDimPressed{false};  // C#2
+  std::atomic<bool> isMinPressed{false};  // D#2
+  std::atomic<bool> isMajPressed{false};  // F#2
+  std::atomic<bool> isSus2Pressed{false}; // G#2
+
+  // Extension Modifiers
+  std::atomic<bool> is6Pressed{false};    // C2
+  std::atomic<bool> isMin7Pressed{false}; // D2
+  std::atomic<bool> isMaj7Pressed{false}; // F2
+  std::atomic<bool> is9Pressed{false};    // G2
+
+  // Helper to calculate intervals based on current state
+  std::vector<int> getNoteIntervals();
+
+  // Track active chord intervals to ensure correct NoteOffs
+  // Key: Trigger Note Number, Value: Vector of added intervals
+  std::map<int, std::vector<int>> activeChordIntervals;
+
   JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MySynthAudioProcessor)
 };
