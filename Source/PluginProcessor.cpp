@@ -192,6 +192,15 @@ void MySynthAudioProcessor::processBlock(juce::AudioBuffer<float> &buffer,
 
   bool isChordModeOn = *chordModeParam > 0.5f;
 
+  // Mode Switch Logic: If switching from OFF to ON, kill existing notes (with
+  // release)
+  if (isChordModeOn && !wasChordModeOn) {
+    for (int i = 1; i <= 16; ++i)
+      synthesiser.allNotesOff(i, true);
+    activeChordIntervals.clear();
+  }
+  wasChordModeOn = isChordModeOn;
+
   if (isChordModeOn) {
     for (const auto metadata : midiMessages) {
       auto message = metadata.getMessage();

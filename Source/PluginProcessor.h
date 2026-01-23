@@ -63,10 +63,13 @@ private:
   std::atomic<bool> isSus2Pressed{false}; // G#2
 
   // Extension Modifiers
-  std::atomic<bool> is6Pressed{false};    // C2
-  std::atomic<bool> isMin7Pressed{false}; // D2
-  std::atomic<bool> isMaj7Pressed{false}; // F2
-  std::atomic<bool> is9Pressed{false};    // G2
+  std::atomic<bool> is6Pressed{false};    // C4
+  std::atomic<bool> isMin7Pressed{false}; // D4
+  std::atomic<bool> isMaj7Pressed{false}; // F4
+  std::atomic<bool> is9Pressed{false};    // G4
+
+  // Track previous mode state for transition handling
+  bool wasChordModeOn = true; // Default to true to match default parameter
 
   // Helper to calculate intervals based on current state
   std::vector<int> getNoteIntervals();
