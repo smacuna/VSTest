@@ -398,7 +398,6 @@ int MySynthAudioProcessor::fitNoteToRange(int note, int low, int high) {
 
   int candidate = note;
 
-  // 1. Shift up until >= low (if needed)
   if (candidate < low) {
     while (candidate < low) {
       candidate += 12;
