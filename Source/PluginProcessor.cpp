@@ -30,6 +30,8 @@ MySynthAudioProcessor::MySynthAudioProcessor()
   cutoffParam = apvts.getRawParameterValue("cutoff");
   resonanceParam = apvts.getRawParameterValue("resonance");
   chordModeParam = apvts.getRawParameterValue("chordMode");
+  lowNoteParam = apvts.getRawParameterValue("lowNote");
+  highNoteParam = apvts.getRawParameterValue("highNote");
 }
 
 MySynthAudioProcessor::~MySynthAudioProcessor() {}
@@ -66,6 +68,11 @@ MySynthAudioProcessor::createParameterLayout() {
 
   layout.add(std::make_unique<juce::AudioParameterBool>("chordMode",
                                                         "Chord Mode", true));
+
+  layout.add(std::make_unique<juce::AudioParameterInt>("lowNote", "Low Note", 0,
+                                                       127, 60));
+  layout.add(std::make_unique<juce::AudioParameterInt>("highNote", "High Note",
+                                                       0, 127, 72));
 
   return layout;
 }
@@ -177,6 +184,8 @@ void MySynthAudioProcessor::processBlock(juce::AudioBuffer<float> &buffer,
   float currentOscType = oscTypeParam->load();
   float currentCutoff = cutoffParam->load();
   float currentResonance = resonanceParam->load();
+  int lowLimit = static_cast<int>(lowNoteParam->load());
+  int highLimit = static_cast<int>(highNoteParam->load());
 
   // Propagate parameters to voices
   for (int i = 0; i < synthesiser.getNumVoices(); ++i) {
@@ -197,7 +206,8 @@ void MySynthAudioProcessor::processBlock(juce::AudioBuffer<float> &buffer,
   if (isChordModeOn && !wasChordModeOn) {
     for (int i = 1; i <= 16; ++i)
       synthesiser.allNotesOff(i, true);
-    activeChordIntervals.clear();
+
+    activeChordNotes.clear();
   }
   wasChordModeOn = isChordModeOn;
 
@@ -236,23 +246,17 @@ void MySynthAudioProcessor::processBlock(juce::AudioBuffer<float> &buffer,
       }
 
       // ---- HANDLER FOR TRIGGER KEYS (Octave 5: 72-83) ----
+      // ---- HANDLER FOR TRIGGER KEYS (Octave 5: 72-83) ----
       if (noteNumber >= 72 && noteNumber <= 83) {
         if (message.isNoteOn()) {
           // GLITCH FIX: Check if this trigger is already active.
-          // If so, force NoteOffs for the OLD intervals before starting new
+          // If so, force NoteOffs for the OLD, stored notes before starting new
           // ones.
-          if (activeChordIntervals.count(noteNumber)) {
-            auto oldIntervals = activeChordIntervals[noteNumber];
+          if (activeChordNotes.count(noteNumber)) {
+            auto oldNotes = activeChordNotes[noteNumber];
 
-            // Send NoteOff for Root
-            processedMidi.addEvent(
-                juce::MidiMessage::noteOff(message.getChannel(), noteNumber,
-                                           velocity),
-                metadata.samplePosition);
-
-            // Send NoteOffs for Old Intervals
-            for (int interval : oldIntervals) {
-              auto oldNote = noteNumber + interval;
+            // Send NoteOffs for Old Notes (Root is included in oldNotes now)
+            for (int oldNote : oldNotes) {
               if (oldNote <= 127) {
                 processedMidi.addEvent(
                     juce::MidiMessage::noteOff(message.getChannel(), oldNote,
@@ -260,46 +264,55 @@ void MySynthAudioProcessor::processBlock(juce::AudioBuffer<float> &buffer,
                     metadata.samplePosition);
               }
             }
-            activeChordIntervals.erase(noteNumber);
+            activeChordNotes.erase(noteNumber);
           }
 
           auto intervals = getNoteIntervals();
 
           if (!intervals.empty()) {
-            activeChordIntervals[noteNumber] = intervals;
+            std::vector<int> currentChordNotes;
 
-            // Add Root
-            processedMidi.addEvent(message, metadata.samplePosition);
+            // Add Root (Fitted)
+            int fittedRoot = fitNoteToRange(noteNumber, lowLimit, highLimit);
+            if (fittedRoot <= 127) {
+              processedMidi.addEvent(
+                  juce::MidiMessage::noteOn(message.getChannel(), fittedRoot,
+                                            velocity),
+                  metadata.samplePosition);
+              currentChordNotes.push_back(fittedRoot);
+            }
+
             // Add Intervals
             for (int interval : intervals) {
               auto newNote = noteNumber + interval;
+              newNote = fitNoteToRange(newNote, lowLimit, highLimit);
+
               if (newNote <= 127) {
                 processedMidi.addEvent(
                     juce::MidiMessage::noteOn(message.getChannel(), newNote,
                                               velocity),
                     metadata.samplePosition);
+                currentChordNotes.push_back(newNote);
               }
             }
+            activeChordNotes[noteNumber] = currentChordNotes;
             continue; // Handled
           }
         } else if (message.isNoteOff()) {
           // Check if this note was triggered as a chord
-          if (activeChordIntervals.count(noteNumber)) {
-            auto intervals = activeChordIntervals[noteNumber];
+          if (activeChordNotes.count(noteNumber)) {
+            auto oldNotes = activeChordNotes[noteNumber];
 
-            // Add Root Off
-            processedMidi.addEvent(message, metadata.samplePosition);
-            // Add Intervals Off
-            for (int interval : intervals) {
-              auto newNote = noteNumber + interval;
-              if (newNote <= 127) {
+            // Add Intervals Off (using stored notes - includes Root)
+            for (int oldNote : oldNotes) {
+              if (oldNote <= 127) {
                 processedMidi.addEvent(
-                    juce::MidiMessage::noteOff(message.getChannel(), newNote,
+                    juce::MidiMessage::noteOff(message.getChannel(), oldNote,
                                                velocity),
                     metadata.samplePosition);
               }
             }
-            activeChordIntervals.erase(noteNumber);
+            activeChordNotes.erase(noteNumber);
             continue; // Handled
           }
         }
@@ -378,6 +391,27 @@ void MySynthAudioProcessor::setStateInformation(const void *data,
 }
 
 // Creation function
+// Helper to fit note within specific MIDI range
+int MySynthAudioProcessor::fitNoteToRange(int note, int low, int high) {
+  if (low >= high)
+    return note; // Safety
+
+  int candidate = note;
+
+  // 1. Shift up until >= low (if needed)
+  if (candidate < low) {
+    while (candidate < low) {
+      candidate += 12;
+    }
+  } else if (candidate > high) {
+    while (candidate > high) {
+      candidate -= 12;
+    }
+  }
+
+  return candidate;
+}
+
 juce::AudioProcessor *JUCE_CALLTYPE createPluginFilter() {
   return new MySynthAudioProcessor();
 }

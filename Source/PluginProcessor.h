@@ -54,6 +54,11 @@ private:
   std::atomic<float> *cutoffParam = nullptr;
   std::atomic<float> *resonanceParam = nullptr;
   std::atomic<float> *chordModeParam = nullptr;
+  std::atomic<float> *lowNoteParam = nullptr;
+  std::atomic<float> *highNoteParam = nullptr;
+
+  // Helper to fit note within specific MIDI range (inversions)
+  int fitNoteToRange(int note, int low, int high);
 
   // Chord Mode internal state
   // Triad Modifiers
@@ -74,9 +79,9 @@ private:
   // Helper to calculate intervals based on current state
   std::vector<int> getNoteIntervals();
 
-  // Track active chord intervals to ensure correct NoteOffs
-  // Key: Trigger Note Number, Value: Vector of added intervals
-  std::map<int, std::vector<int>> activeChordIntervals;
+  // Track active chord notes (absolute MIDI numbers) to ensure correct NoteOffs
+  // Key: Trigger Note Number, Value: Vector of actual played MIDI notes
+  std::map<int, std::vector<int>> activeChordNotes;
 
   JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MySynthAudioProcessor)
 };

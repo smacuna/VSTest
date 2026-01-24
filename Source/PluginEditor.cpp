@@ -77,6 +77,26 @@ MySynthAudioProcessorEditor::MySynthAudioProcessorEditor(
   resAttachment =
       std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
           audioProcessor.apvts, "resonance", resSlider);
+
+  // Low Note Slider
+  lowNoteSlider.setSliderStyle(
+      juce::Slider::SliderStyle::RotaryHorizontalVerticalDrag);
+  lowNoteSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, true, 50, 25);
+  addAndMakeVisible(lowNoteSlider);
+
+  lowNoteAttachment =
+      std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
+          audioProcessor.apvts, "lowNote", lowNoteSlider);
+
+  // High Note Slider
+  highNoteSlider.setSliderStyle(
+      juce::Slider::SliderStyle::RotaryHorizontalVerticalDrag);
+  highNoteSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, true, 50, 25);
+  addAndMakeVisible(highNoteSlider);
+
+  highNoteAttachment =
+      std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
+          audioProcessor.apvts, "highNote", highNoteSlider);
 }
 
 MySynthAudioProcessorEditor::~MySynthAudioProcessorEditor() {
@@ -112,14 +132,23 @@ void MySynthAudioProcessorEditor::paint(juce::Graphics &g) {
   g.drawFittedText("Release", releaseRect.removeFromTop(20),
                    juce::Justification::centred, 1);
 
-  auto filterArea = area;
-  const auto filterSliderWidth = filterArea.getWidth() / 2;
+  // Filter Area (Bottom)
+  // We now have 4 sliders in the bottom row: Cutoff, Res, Low, High
+  auto filterArea = area; // Remaining space
+  const auto filterSliderWidth = filterArea.getWidth() / 4;
+
   auto cutoffRect = filterArea.removeFromLeft(filterSliderWidth);
   auto resRect = filterArea.removeFromLeft(filterSliderWidth);
+  auto lowRect = filterArea.removeFromLeft(filterSliderWidth);
+  auto highRect = filterArea.removeFromLeft(filterSliderWidth);
 
   g.drawFittedText("Cutoff", cutoffRect.removeFromTop(20),
                    juce::Justification::centred, 1);
   g.drawFittedText("Resonance", resRect.removeFromTop(20),
+                   juce::Justification::centred, 1);
+  g.drawFittedText("Low Limit", lowRect.removeFromTop(20),
+                   juce::Justification::centred, 1);
+  g.drawFittedText("High Limit", highRect.removeFromTop(20),
                    juce::Justification::centred, 1);
 }
 
@@ -170,8 +199,9 @@ void MySynthAudioProcessorEditor::resized() {
   releaseSlider.setBounds(releaseArea.reduced(padding));
 
   // Filter Area (Bottom)
+  // We now have 4 sliders in the bottom row: Cutoff, Res, Low, High
   auto filterArea = area; // Remaining space
-  const auto filterSliderWidth = filterArea.getWidth() / 2;
+  const auto filterSliderWidth = filterArea.getWidth() / 4;
 
   // Cutoff
   auto cutoffArea = filterArea.removeFromLeft(filterSliderWidth);
@@ -182,4 +212,14 @@ void MySynthAudioProcessorEditor::resized() {
   auto resArea = filterArea.removeFromLeft(filterSliderWidth);
   resArea.removeFromTop(20);
   resSlider.setBounds(resArea.reduced(padding));
+
+  // Low Note
+  auto lowArea = filterArea.removeFromLeft(filterSliderWidth);
+  lowArea.removeFromTop(20);
+  lowNoteSlider.setBounds(lowArea.reduced(padding));
+
+  // High Note
+  auto highArea = filterArea.removeFromLeft(filterSliderWidth);
+  highArea.removeFromTop(20);
+  highNoteSlider.setBounds(highArea.reduced(padding));
 }

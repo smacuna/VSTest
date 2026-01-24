@@ -22,6 +22,8 @@ private:
   juce::ComboBox oscSelector;
   juce::Slider cutoffSlider;
   juce::Slider resSlider;
+  juce::Slider lowNoteSlider;
+  juce::Slider highNoteSlider;
 
   std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>
       attackAttachment;
@@ -37,6 +39,10 @@ private:
       cutoffAttachment;
   std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>
       resAttachment;
+  std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>
+      lowNoteAttachment;
+  std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>
+      highNoteAttachment;
 
   juce::ToggleButton chordModeToggle{"Chord Mode"};
   std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment>
