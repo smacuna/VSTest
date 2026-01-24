@@ -323,45 +323,33 @@ std::vector<int> MySynthAudioProcessor::getNoteIntervals() {
 
   // 1. Determine Triad (Lowest Note Priority)
   // Priority: Dim (C#2) > Min (D#2) > Maj (F#2) > Sus2 (G#2)
-  bool triadSelected = false;
 
   if (isDimPressed) {
     intervals.push_back(3); // Minor Third
     intervals.push_back(6); // Diminished Fifth (Tritone)
-    triadSelected = true;
   } else if (isMinPressed) {
     intervals.push_back(3); // Minor Third
     intervals.push_back(7); // Perfect Fifth
-    triadSelected = true;
   } else if (isMajPressed) {
     intervals.push_back(4); // Major Third
     intervals.push_back(7); // Perfect Fifth
-    triadSelected = true;
   } else if (isSus2Pressed) {
     intervals.push_back(2); // Major Second
     intervals.push_back(7); // Perfect Fifth
-    triadSelected = true;
   }
 
   // 2. Determine Extensions (Cumulative with strict priority)
   // "C4: 6, D4: Min7, F4: Maj7, G4: 9"
 
-  bool extSelected = false;
-
-  if (is6Pressed) {         // C4 - Priority 1
-    intervals.push_back(9); // Major 6th
-    extSelected = true;
+  if (is6Pressed) {           // C4 - Priority 1
+    intervals.push_back(9);   // Major 6th
   } else if (isMin7Pressed) { // D4 - Priority 2
     intervals.push_back(10);  // Minor 7th
-    extSelected = true;
   } else if (isMaj7Pressed) { // F4 - Priority 3
     intervals.push_back(11);  // Major 7th
-    extSelected = true;
-  } else if (is9Pressed) { // G4 - Priority 4
-    // User correction: "9 must be m7 and M9"
-    intervals.push_back(10); // Minor 7th
-    intervals.push_back(14); // Major 9th
-    extSelected = true;
+  } else if (is9Pressed) {    // G4 - Priority 4
+    intervals.push_back(10);  // Minor 7th
+    intervals.push_back(14);  // Major 9th
   }
 
   return intervals;
