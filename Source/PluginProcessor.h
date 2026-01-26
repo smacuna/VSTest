@@ -94,8 +94,6 @@ private:
   std::atomic<int> lastTriggeredNote{-1};
 
   // Helper to calculate intervals based on current state
-
-  // Helper to calculate intervals based on current state
   std::vector<int> getNoteIntervals();
 
   // Track active chord notes (absolute MIDI numbers) to ensure correct NoteOffs

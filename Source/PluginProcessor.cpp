@@ -70,10 +70,10 @@ MySynthAudioProcessor::createParameterLayout() {
   layout.add(std::make_unique<juce::AudioParameterBool>("chordMode",
                                                         "Chord Mode", true));
 
-  layout.add(std::make_unique<juce::AudioParameterInt>("lowNote", "Low Note", 0,
-                                                       127, 60));
-  layout.add(std::make_unique<juce::AudioParameterInt>("highNote", "High Note",
-                                                       0, 127, 72));
+  layout.add(std::make_unique<juce::AudioParameterInt>(
+      "lowNote", "Low Limit", 0, 127, 48)); // Default C3
+  layout.add(std::make_unique<juce::AudioParameterInt>(
+      "highNote", "High Limit", 0, 127, 84)); // Default C6
 
   return layout;
 }
@@ -248,7 +248,6 @@ void MySynthAudioProcessor::processBlock(juce::AudioBuffer<float> &buffer,
       }
 
       // ---- HANDLER FOR TRIGGER KEYS (Octave 5: 72-83) ----
-      // ---- HANDLER FOR TRIGGER KEYS (Octave 5: 72-83) ----
       if (noteNumber >= 72 && noteNumber <= 83) {
         if (message.isNoteOn()) {
           // 1. Manage Held Notes (Last Note Priority)
@@ -272,15 +271,11 @@ void MySynthAudioProcessor::processBlock(juce::AudioBuffer<float> &buffer,
           activeChordNotes.clear();
 
           // 3. Trigger the NEW note (Last pressed)
-          // We always trigger the note causing the event here, because we just
-          // push_back'd it. (In a true Mono synth, if you press A then B, B
-          // sounds. We just did that.)
 
           auto intervals = getNoteIntervals();
           std::vector<int> currentChordNotes;
 
           if (!intervals.empty()) {
-            // ... Interval logic ...
             // Add Root (Fitted)
             int fittedRoot = fitNoteToRange(noteNumber, lowLimit, highLimit);
             if (fittedRoot <= 127) {
@@ -304,7 +299,13 @@ void MySynthAudioProcessor::processBlock(juce::AudioBuffer<float> &buffer,
               }
             }
           } else {
-            // Single Note
+            // Single Note (if no chord functionality, just play note - fit to
+            // range?) Assuming we fit single note too if desired, or play raw?
+            // "Telepathic" usually implies playing raw if no modifiers?
+            // Let's fit it to be safe or play raw. The logic says "Single Note"
+            // -> play raw noteNumber. But we should probably check if it was
+            // intended to be limited? User requested limits for "Chord
+            // Generation".
             processedMidi.addEvent(message, metadata.samplePosition);
             currentChordNotes.push_back(noteNumber);
           }
@@ -336,13 +337,8 @@ void MySynthAudioProcessor::processBlock(juce::AudioBuffer<float> &buffer,
             // 3. Retrigger the specific previous note if available
             if (!heldTriggerNotes.empty()) {
               int noteToRetrigger = heldTriggerNotes.back();
-              // Construct a fake NoteOn to re-run logic?
-              // We can't easily recurse. We must duplicate the Trigger logic.
-              // Or: We just accept that we need to trigger 'noteToRetrigger'.
-              // Use default velocity? Or 1.0f?
-              float retriggerVel = 1.0f; // Use Full or last velocity?
-              // Ideally we track velocity too, but let's use 1.0 for now or
-              // finding a way. Re-calculating intervals!
+              // Construct a fake NoteOn to re-run logic
+              float retriggerVel = 1.0f;
 
               auto intervals = getNoteIntervals();
               std::vector<int> newChordNotes;
@@ -384,12 +380,10 @@ void MySynthAudioProcessor::processBlock(juce::AudioBuffer<float> &buffer,
 
             continue; // Handled
           }
-          // If released note was NOT sounding (was hidden in stack), just
-          // removed from stack (done above).
         }
       }
 
-      // Pass through other notes (and Octave 3 if no modifiers active)
+      // Pass through other notes
       processedMidi.addEvent(message, metadata.samplePosition);
     }
 
@@ -469,6 +463,7 @@ int MySynthAudioProcessor::fitNoteToRange(int note, int low, int high) {
 
   int candidate = note;
 
+  // Simple "while" to shift via octaves (12 semitones)
   if (candidate < low) {
     while (candidate < low) {
       candidate += 12;

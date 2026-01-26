@@ -45,14 +45,14 @@ MySynthAudioProcessorEditor::MySynthAudioProcessorEditor(
       std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
           audioProcessor.apvts, "release", releaseSlider);
 
-  // Oscillator Selector
   oscSelector.addItem("Sine", 1);
   oscSelector.addItem("Saw", 2);
   oscSelector.addItem("Square", 3);
   addAndMakeVisible(oscSelector);
 
-  std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
-      audioProcessor.apvts, "oscType", oscSelector);
+  oscAttachment =
+      std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
+          audioProcessor.apvts, "oscType", oscSelector);
 
   // Chord Mode Toggle
   addAndMakeVisible(chordModeToggle);

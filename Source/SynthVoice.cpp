@@ -1,8 +1,8 @@
 #include "SynthVoice.h"
 
 SynthVoice::SynthVoice() {
-  // Initialize Oscillator with a default function
-  oscillator.initialise([](float x) { return std::sin(x); });
+  // Initialize Oscillator with a default function (Sine)
+  setOscillatorType(OscType::Sine);
 }
 
 bool SynthVoice::canPlaySound(juce::SynthesiserSound *sound) {
@@ -52,7 +52,7 @@ void SynthVoice::prepareToPlay(double sampleRate, int samplesPerBlock,
 
   gain.setGainLinear(0.3f); // Master volume for safety
 
-  // Configuración inicial ADSR para pruebas
+  // Initial ADSR Config
   juce::ADSR::Parameters adsrParams;
   adsrParams.attack = 0.1f;
   adsrParams.decay = 0.1f;
@@ -77,21 +77,30 @@ void SynthVoice::updateParameters(float attack, float decay, float sustain,
   filter.setResonance(resonance);
 
   // Update Oscillator Type safely
-  int type = static_cast<int>(oscType);
-  if (static_cast<OscType>(type) != currentOscType) {
-    currentOscType = static_cast<OscType>(type);
-    switch (currentOscType) {
-    case OscType::Sine:
-      oscillator.initialise([](float x) { return std::sin(x); });
-      break;
-    case OscType::Saw:
-      oscillator.initialise(
-          [](float x) { return x / juce::MathConstants<float>::pi; });
-      break;
-    case OscType::Square:
-      oscillator.initialise([](float x) { return x < 0.0f ? -1.0f : 1.0f; });
-      break;
+  int typeIndex = static_cast<int>(oscType);
+  if (typeIndex >= 0 && typeIndex <= 2) {
+    if (static_cast<OscType>(typeIndex) != currentOscType) {
+      setOscillatorType(static_cast<OscType>(typeIndex));
     }
+  }
+}
+
+void SynthVoice::setOscillatorType(OscType type) {
+  currentOscType = type;
+
+  switch (currentOscType) {
+  case OscType::Sine:
+    oscillator.initialise([](float x) { return std::sin(x); });
+    break;
+  case OscType::Saw:
+    // Naive Sawtooth: x is in [-pi, pi], so x/pi is [-1, 1]
+    oscillator.initialise(
+        [](float x) { return x / juce::MathConstants<float>::pi; });
+    break;
+  case OscType::Square:
+    // Naive Square
+    oscillator.initialise([](float x) { return x < 0.0f ? -1.0f : 1.0f; });
+    break;
   }
 }
 
@@ -128,7 +137,7 @@ void SynthVoice::renderNextBlock(juce::AudioBuffer<float> &outputBuffer,
                          numSamples);
   }
 
-  // Si ADSR terminó, limpiamos la nota
+  // Check if ADSR finished
   if (!adsr.isActive()) {
     clearCurrentNote();
   }

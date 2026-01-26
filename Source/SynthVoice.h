@@ -25,7 +25,7 @@ public:
   void renderNextBlock(juce::AudioBuffer<float> &outputBuffer, int startSample,
                        int numSamples) override;
 
-  // Métodos para actualizar parámetros sin bloquear
+  // Methods to update parameters safely
   void updateParameters(float attack, float decay, float sustain, float release,
                         float oscType, float cutoff, float resonance);
 
@@ -42,7 +42,6 @@ private:
   enum class OscType { Sine = 0, Saw, Square };
   OscType currentOscType{OscType::Sine};
 
-  // Buffers internos para DSP si fueran necesarios (evitar alocación en
-  // process) En este caso simple, dsp::Oscillator escribe directamente si
-  // usamos AudioBlock correctamente
+  // Helper to set oscillator type
+  void setOscillatorType(OscType type);
 };
