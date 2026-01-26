@@ -51,7 +51,10 @@ public:
   bool is6PressedVal() const { return is6Pressed; }
   bool isMin7PressedVal() const { return isMin7Pressed; }
   bool isMaj7PressedVal() const { return isMaj7Pressed; }
+
   bool is9PressedVal() const { return is9Pressed; }
+
+  juce::String getChordName();
 
 private:
   juce::Synthesiser synthesiser;
@@ -86,6 +89,11 @@ private:
 
   // Track previous mode state for transition handling
   bool wasChordModeOn = true; // Default to true to match default parameter
+
+  // Last Triggered Note (Root) for Display
+  std::atomic<int> lastTriggeredNote{-1};
+
+  // Helper to calculate intervals based on current state
 
   // Helper to calculate intervals based on current state
   std::vector<int> getNoteIntervals();

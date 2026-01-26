@@ -50,6 +50,17 @@ private:
   std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment>
       chordModeAttachment;
 
+  // Modifier Buttons (Indicators)
+  juce::TextButton dimButton{"Dim"};
+  juce::TextButton minButton{"Min"};
+  juce::TextButton majButton{"Maj"};
+  juce::TextButton sus2Button{"Sus2"};
+
+  juce::TextButton sixthButton{"6"};
+  juce::TextButton min7Button{"m7"};
+  juce::TextButton maj7Button{"M7"};
+  juce::TextButton ninthButton{"9"};
+
   MyLookAndFeel myLookAndFeel;
 
   JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MySynthAudioProcessorEditor)

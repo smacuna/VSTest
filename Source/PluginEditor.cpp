@@ -99,6 +99,27 @@ MySynthAudioProcessorEditor::MySynthAudioProcessorEditor(
   highNoteAttachment =
       std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
           audioProcessor.apvts, "highNote", highNoteSlider);
+
+  // Modifiers
+  addAndMakeVisible(dimButton);
+  addAndMakeVisible(minButton);
+  addAndMakeVisible(majButton);
+  addAndMakeVisible(sus2Button);
+
+  addAndMakeVisible(sixthButton);
+  addAndMakeVisible(min7Button);
+  addAndMakeVisible(maj7Button);
+  addAndMakeVisible(ninthButton);
+
+  // Configure buttons as indicators (optional, but good practice)
+  dimButton.setClickingTogglesState(false);
+  minButton.setClickingTogglesState(false);
+  majButton.setClickingTogglesState(false);
+  sus2Button.setClickingTogglesState(false);
+  sixthButton.setClickingTogglesState(false);
+  min7Button.setClickingTogglesState(false);
+  maj7Button.setClickingTogglesState(false);
+  ninthButton.setClickingTogglesState(false);
 }
 
 MySynthAudioProcessorEditor::~MySynthAudioProcessorEditor() {
@@ -153,45 +174,50 @@ void MySynthAudioProcessorEditor::paint(juce::Graphics &g) {
   g.drawFittedText("High Limit", highRect.removeFromTop(20),
                    juce::Justification::centred, 1);
 
-  // Draw Modifier Status
-  g.setColour(juce::Colours::yellow);
-  g.setFont(20.0f);
-  auto modArea = area.removeFromBottom(40).reduced(10, 0);
+  // Screen Area
+  auto modifiersArea = area.reduced(10, 0);
+  modifiersArea.removeFromLeft(250);          // space for buttons
+  auto screenArea = modifiersArea.reduced(5); // remaining space
 
-  juce::String statusText = "";
+  // Draw Screen Background
+  g.setColour(juce::Colours::darkgrey.withAlpha(0.5f));
+  g.fillRoundedRectangle(screenArea.toFloat(), 10.0f);
+  g.setColour(juce::Colours::white);
+  g.drawRoundedRectangle(screenArea.toFloat(), 10.0f, 2.0f);
 
-  if (audioProcessor.isDimPressedVal())
-    statusText += "Diminished ";
-  else if (audioProcessor.isMinPressedVal())
-    statusText += "Minor ";
-  else if (audioProcessor.isMajPressedVal())
-    statusText += "Major ";
-  else if (audioProcessor.isSus2PressedVal())
-    statusText += "Sus2 ";
-
-  if (audioProcessor.is6PressedVal())
-    statusText += "6 ";
-  else if (audioProcessor.isMin7PressedVal())
-    statusText += "m7 ";
-  else if (audioProcessor.isMaj7PressedVal())
-    statusText += "M7 ";
-  else if (audioProcessor.is9PressedVal())
-    statusText += "9";
-
-  if (statusText.isEmpty())
-    statusText = "No Modifiers";
-
-  g.drawFittedText(statusText, modArea, juce::Justification::centred, 1);
+  // Draw Chord Name
+  g.setColour(juce::Colours::white);
+  g.setFont(40.0f);
+  g.drawFittedText(audioProcessor.getChordName(), screenArea,
+                   juce::Justification::centred, 1);
 }
 
-void MySynthAudioProcessorEditor::timerCallback() { repaint(); }
+void MySynthAudioProcessorEditor::timerCallback() {
+  dimButton.setToggleState(audioProcessor.isDimPressedVal(),
+                           juce::dontSendNotification);
+  minButton.setToggleState(audioProcessor.isMinPressedVal(),
+                           juce::dontSendNotification);
+  majButton.setToggleState(audioProcessor.isMajPressedVal(),
+                           juce::dontSendNotification);
+  sus2Button.setToggleState(audioProcessor.isSus2PressedVal(),
+                            juce::dontSendNotification);
+
+  sixthButton.setToggleState(audioProcessor.is6PressedVal(),
+                             juce::dontSendNotification);
+  min7Button.setToggleState(audioProcessor.isMin7PressedVal(),
+                            juce::dontSendNotification);
+  maj7Button.setToggleState(audioProcessor.isMaj7PressedVal(),
+                            juce::dontSendNotification);
+  ninthButton.setToggleState(audioProcessor.is9PressedVal(),
+                             juce::dontSendNotification);
+
+  repaint();
+}
 
 void MySynthAudioProcessorEditor::resized() {
   const auto bounds = getLocalBounds().reduced(10);
   const auto padding = 10;
   // 4 ADSR sliders + 2 Filter sliders = 6 sliders.
-  // Layout: One row for ADSR, one row for Filter? Or all in one row?
-  // Let's do:
   // Top: Osc Selector
   // Mid: ADSR (Attack, Decay, Sustain, Release)
   // Bottom: Filter (Cutoff, Resonance)
@@ -256,4 +282,22 @@ void MySynthAudioProcessorEditor::resized() {
   auto highArea = filterArea.removeFromLeft(filterSliderWidth);
   highArea.removeFromTop(20);
   highNoteSlider.setBounds(highArea.reduced(padding));
+
+  // Modifiers Area (Bottom)
+  auto modifiersArea = area.reduced(10, 0);
+  auto triadModRow = modifiersArea.removeFromTop(40);
+  auto seventhModRow = modifiersArea.removeFromTop(40);
+
+  // We use fixed width for buttons to make them look neat
+  const int buttonWidth = 60;
+
+  dimButton.setBounds(triadModRow.removeFromLeft(buttonWidth).reduced(2));
+  minButton.setBounds(triadModRow.removeFromLeft(buttonWidth).reduced(2));
+  majButton.setBounds(triadModRow.removeFromLeft(buttonWidth).reduced(2));
+  sus2Button.setBounds(triadModRow.removeFromLeft(buttonWidth).reduced(2));
+
+  sixthButton.setBounds(seventhModRow.removeFromLeft(buttonWidth).reduced(2));
+  min7Button.setBounds(seventhModRow.removeFromLeft(buttonWidth).reduced(2));
+  maj7Button.setBounds(seventhModRow.removeFromLeft(buttonWidth).reduced(2));
+  ninthButton.setBounds(seventhModRow.removeFromLeft(buttonWidth).reduced(2));
 }

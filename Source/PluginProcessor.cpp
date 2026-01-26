@@ -1,4 +1,5 @@
 #include "PluginProcessor.h"
+#include "ChordNameUtils.h"
 #include "PluginEditor.h"
 
 MySynthAudioProcessor::MySynthAudioProcessor()
@@ -249,6 +250,9 @@ void MySynthAudioProcessor::processBlock(juce::AudioBuffer<float> &buffer,
       // ---- HANDLER FOR TRIGGER KEYS (Octave 5: 72-83) ----
       if (noteNumber >= 72 && noteNumber <= 83) {
         if (message.isNoteOn()) {
+          // Track for Display
+          lastTriggeredNote = noteNumber;
+
           // GLITCH FIX: Check if this trigger is already active.
           // If so, force NoteOffs for the OLD, stored notes before starting new
           // ones.
@@ -409,6 +413,17 @@ int MySynthAudioProcessor::fitNoteToRange(int note, int low, int high) {
   }
 
   return candidate;
+}
+
+// Helper for display
+juce::String MySynthAudioProcessor::getChordName() {
+  if (lastTriggeredNote < 0)
+    return "";
+
+  return ChordNameUtils::getChordName(
+      lastTriggeredNote, isDimPressedVal(), isMinPressedVal(),
+      isMajPressedVal(), isSus2PressedVal(), is6PressedVal(),
+      isMin7PressedVal(), isMaj7PressedVal(), is9PressedVal());
 }
 
 juce::AudioProcessor *JUCE_CALLTYPE createPluginFilter() {
