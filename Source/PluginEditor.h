@@ -4,13 +4,15 @@
 #include "PluginProcessor.h"
 #include <JuceHeader.h>
 
-class MySynthAudioProcessorEditor : public juce::AudioProcessorEditor {
+class MySynthAudioProcessorEditor : public juce::AudioProcessorEditor,
+                                    public juce::Timer {
 public:
   MySynthAudioProcessorEditor(MySynthAudioProcessor &);
   ~MySynthAudioProcessorEditor() override;
 
   void paint(juce::Graphics &) override;
   void resized() override;
+  void timerCallback() override;
 
 private:
   MySynthAudioProcessor &audioProcessor;

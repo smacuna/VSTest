@@ -42,6 +42,17 @@ public:
   juce::AudioProcessorValueTreeState apvts{*this, nullptr, "Parameters",
                                            createParameterLayout()};
 
+  // Public getters for modifier state (for visualizer)
+  bool isDimPressedVal() const { return isDimPressed; }
+  bool isMinPressedVal() const { return isMinPressed; }
+  bool isMajPressedVal() const { return isMajPressed; }
+  bool isSus2PressedVal() const { return isSus2Pressed; }
+
+  bool is6PressedVal() const { return is6Pressed; }
+  bool isMin7PressedVal() const { return isMin7Pressed; }
+  bool isMaj7PressedVal() const { return isMaj7Pressed; }
+  bool is9PressedVal() const { return is9Pressed; }
+
 private:
   juce::Synthesiser synthesiser;
 

@@ -4,8 +4,10 @@
 MySynthAudioProcessorEditor::MySynthAudioProcessorEditor(
     MySynthAudioProcessor &p)
     : AudioProcessorEditor(&p), audioProcessor(p) {
-  setSize(600, 450);
+  setSize(600, 600);
   setLookAndFeel(&myLookAndFeel);
+
+  startTimerHz(60); // Start repainting at 60fps for visualizer
 
   // Attack Slider
   attackSlider.setSliderStyle(juce::Slider::SliderStyle::LinearVertical);
@@ -134,7 +136,7 @@ void MySynthAudioProcessorEditor::paint(juce::Graphics &g) {
 
   // Filter Area (Bottom)
   // We now have 4 sliders in the bottom row: Cutoff, Res, Low, High
-  auto filterArea = area; // Remaining space
+  auto filterArea = area.removeFromTop(200);
   const auto filterSliderWidth = filterArea.getWidth() / 4;
 
   auto cutoffRect = filterArea.removeFromLeft(filterSliderWidth);
@@ -150,7 +152,39 @@ void MySynthAudioProcessorEditor::paint(juce::Graphics &g) {
                    juce::Justification::centred, 1);
   g.drawFittedText("High Limit", highRect.removeFromTop(20),
                    juce::Justification::centred, 1);
+
+  // Draw Modifier Status
+  g.setColour(juce::Colours::yellow);
+  g.setFont(20.0f);
+  auto modArea = area.removeFromBottom(40).reduced(10, 0);
+
+  juce::String statusText = "";
+
+  if (audioProcessor.isDimPressedVal())
+    statusText += "Diminished ";
+  else if (audioProcessor.isMinPressedVal())
+    statusText += "Minor ";
+  else if (audioProcessor.isMajPressedVal())
+    statusText += "Major ";
+  else if (audioProcessor.isSus2PressedVal())
+    statusText += "Sus2 ";
+
+  if (audioProcessor.is6PressedVal())
+    statusText += "6 ";
+  else if (audioProcessor.isMin7PressedVal())
+    statusText += "m7 ";
+  else if (audioProcessor.isMaj7PressedVal())
+    statusText += "M7 ";
+  else if (audioProcessor.is9PressedVal())
+    statusText += "9";
+
+  if (statusText.isEmpty())
+    statusText = "No Modifiers";
+
+  g.drawFittedText(statusText, modArea, juce::Justification::centred, 1);
 }
+
+void MySynthAudioProcessorEditor::timerCallback() { repaint(); }
 
 void MySynthAudioProcessorEditor::resized() {
   const auto bounds = getLocalBounds().reduced(10);
@@ -166,7 +200,7 @@ void MySynthAudioProcessorEditor::resized() {
 
   // Oscillator selector at the top
   auto topArea = area.removeFromTop(40);
-  auto labelArea = topArea.removeFromLeft(80); // Skip label area
+  topArea.removeFromLeft(80); // Skip label area
 
   // Split top area for Osc and Toggle
   oscSelector.setBounds(topArea.removeFromLeft(100).reduced(0, 5));
@@ -200,7 +234,7 @@ void MySynthAudioProcessorEditor::resized() {
 
   // Filter Area (Bottom)
   // We now have 4 sliders in the bottom row: Cutoff, Res, Low, High
-  auto filterArea = area; // Remaining space
+  auto filterArea = area.removeFromTop(200);
   const auto filterSliderWidth = filterArea.getWidth() / 4;
 
   // Cutoff
