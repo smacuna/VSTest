@@ -102,5 +102,8 @@ private:
   // Key: Trigger Note Number, Value: Vector of actual played MIDI notes
   std::map<int, std::vector<int>> activeChordNotes;
 
+  // Track physically held trigger keys to handle Last-Note Priority
+  std::vector<int> heldTriggerNotes;
+
   JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MySynthAudioProcessor)
 };

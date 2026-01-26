@@ -209,6 +209,7 @@ void MySynthAudioProcessor::processBlock(juce::AudioBuffer<float> &buffer,
       synthesiser.allNotesOff(i, true);
 
     activeChordNotes.clear();
+    lastTriggeredNote = -1;
   }
   wasChordModeOn = isChordModeOn;
 
@@ -250,32 +251,36 @@ void MySynthAudioProcessor::processBlock(juce::AudioBuffer<float> &buffer,
       // ---- HANDLER FOR TRIGGER KEYS (Octave 5: 72-83) ----
       if (noteNumber >= 72 && noteNumber <= 83) {
         if (message.isNoteOn()) {
-          // Track for Display
-          lastTriggeredNote = noteNumber;
+          // 1. Manage Held Notes (Last Note Priority)
+          heldTriggerNotes.erase(std::remove(heldTriggerNotes.begin(),
+                                             heldTriggerNotes.end(),
+                                             noteNumber),
+                                 heldTriggerNotes.end());
+          heldTriggerNotes.push_back(noteNumber);
 
-          // GLITCH FIX: Check if this trigger is already active.
-          // If so, force NoteOffs for the OLD, stored notes before starting new
-          // ones.
-          if (activeChordNotes.count(noteNumber)) {
-            auto oldNotes = activeChordNotes[noteNumber];
-
-            // Send NoteOffs for Old Notes (Root is included in oldNotes now)
-            for (int oldNote : oldNotes) {
-              if (oldNote <= 127) {
+          // 2. Kill ANY currently sounding chord (Monophonic behavior)
+          for (auto const &[rootNote, playedNotes] : activeChordNotes) {
+            for (int noteToOff : playedNotes) {
+              if (noteToOff <= 127) {
                 processedMidi.addEvent(
-                    juce::MidiMessage::noteOff(message.getChannel(), oldNote,
-                                               velocity),
+                    juce::MidiMessage::noteOff(message.getChannel(), noteToOff,
+                                               0.0f),
                     metadata.samplePosition);
               }
             }
-            activeChordNotes.erase(noteNumber);
           }
+          activeChordNotes.clear();
+
+          // 3. Trigger the NEW note (Last pressed)
+          // We always trigger the note causing the event here, because we just
+          // push_back'd it. (In a true Mono synth, if you press A then B, B
+          // sounds. We just did that.)
 
           auto intervals = getNoteIntervals();
+          std::vector<int> currentChordNotes;
 
           if (!intervals.empty()) {
-            std::vector<int> currentChordNotes;
-
+            // ... Interval logic ...
             // Add Root (Fitted)
             int fittedRoot = fitNoteToRange(noteNumber, lowLimit, highLimit);
             if (fittedRoot <= 127) {
@@ -290,7 +295,6 @@ void MySynthAudioProcessor::processBlock(juce::AudioBuffer<float> &buffer,
             for (int interval : intervals) {
               auto newNote = noteNumber + interval;
               newNote = fitNoteToRange(newNote, lowLimit, highLimit);
-
               if (newNote <= 127) {
                 processedMidi.addEvent(
                     juce::MidiMessage::noteOn(message.getChannel(), newNote,
@@ -299,15 +303,26 @@ void MySynthAudioProcessor::processBlock(juce::AudioBuffer<float> &buffer,
                 currentChordNotes.push_back(newNote);
               }
             }
-            activeChordNotes[noteNumber] = currentChordNotes;
-            continue; // Handled
+          } else {
+            // Single Note
+            processedMidi.addEvent(message, metadata.samplePosition);
+            currentChordNotes.push_back(noteNumber);
           }
+
+          activeChordNotes[noteNumber] = currentChordNotes;
+          lastTriggeredNote = noteNumber;
+
+          continue; // Handled
         } else if (message.isNoteOff()) {
-          // Check if this note was triggered as a chord
+          // 1. Remove from held list
+          heldTriggerNotes.erase(std::remove(heldTriggerNotes.begin(),
+                                             heldTriggerNotes.end(),
+                                             noteNumber),
+                                 heldTriggerNotes.end());
+
+          // 2. If the released note is the one currently sounding...
           if (activeChordNotes.count(noteNumber)) {
             auto oldNotes = activeChordNotes[noteNumber];
-
-            // Add Intervals Off (using stored notes - includes Root)
             for (int oldNote : oldNotes) {
               if (oldNote <= 127) {
                 processedMidi.addEvent(
@@ -317,8 +332,60 @@ void MySynthAudioProcessor::processBlock(juce::AudioBuffer<float> &buffer,
               }
             }
             activeChordNotes.erase(noteNumber);
+
+            // 3. Retrigger the specific previous note if available
+            if (!heldTriggerNotes.empty()) {
+              int noteToRetrigger = heldTriggerNotes.back();
+              // Construct a fake NoteOn to re-run logic?
+              // We can't easily recurse. We must duplicate the Trigger logic.
+              // Or: We just accept that we need to trigger 'noteToRetrigger'.
+              // Use default velocity? Or 1.0f?
+              float retriggerVel = 1.0f; // Use Full or last velocity?
+              // Ideally we track velocity too, but let's use 1.0 for now or
+              // finding a way. Re-calculating intervals!
+
+              auto intervals = getNoteIntervals();
+              std::vector<int> newChordNotes;
+
+              if (!intervals.empty()) {
+                int fittedRoot =
+                    fitNoteToRange(noteToRetrigger, lowLimit, highLimit);
+                if (fittedRoot <= 127) {
+                  processedMidi.addEvent(
+                      juce::MidiMessage::noteOn(message.getChannel(),
+                                                fittedRoot, retriggerVel),
+                      metadata.samplePosition);
+                  newChordNotes.push_back(fittedRoot);
+                }
+                for (int interval : intervals) {
+                  auto newNote = noteToRetrigger + interval;
+                  newNote = fitNoteToRange(newNote, lowLimit, highLimit);
+                  if (newNote <= 127) {
+                    processedMidi.addEvent(
+                        juce::MidiMessage::noteOn(message.getChannel(), newNote,
+                                                  retriggerVel),
+                        metadata.samplePosition);
+                    newChordNotes.push_back(newNote);
+                  }
+                }
+              } else {
+                processedMidi.addEvent(
+                    juce::MidiMessage::noteOn(message.getChannel(),
+                                              noteToRetrigger, retriggerVel),
+                    metadata.samplePosition);
+                newChordNotes.push_back(noteToRetrigger);
+              }
+
+              activeChordNotes[noteToRetrigger] = newChordNotes;
+              lastTriggeredNote = noteToRetrigger;
+            } else {
+              lastTriggeredNote = -1;
+            }
+
             continue; // Handled
           }
+          // If released note was NOT sounding (was hidden in stack), just
+          // removed from stack (done above).
         }
       }
 

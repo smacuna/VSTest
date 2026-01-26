@@ -284,9 +284,10 @@ void MySynthAudioProcessorEditor::resized() {
   highNoteSlider.setBounds(highArea.reduced(padding));
 
   // Modifiers Area (Bottom)
-  auto modifiersArea = area.reduced(10, 0);
-  auto triadModRow = modifiersArea.removeFromTop(40);
-  auto seventhModRow = modifiersArea.removeFromTop(40);
+  auto modArea = area.reduced(10, 0);
+  auto const modAreaHeight = modArea.getHeight();
+  auto triadModRow = modArea.removeFromTop(modAreaHeight / 2);
+  auto seventhModRow = modArea.removeFromTop(modAreaHeight / 2);
 
   // We use fixed width for buttons to make them look neat
   const int buttonWidth = 60;
