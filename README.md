@@ -9,3 +9,9 @@ Para obtener el .vst3 y el Standalone del proyecto, se debe correr el siguiente 
 ```bash
 cmake --build build
 ```
+
+## Generar archivo `compile_commands.json`
+
+```bash
+cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=1 -B build
+```

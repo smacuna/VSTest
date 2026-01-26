@@ -4,5 +4,6 @@
         "--background-index",
         "--clang-tidy",
         "--header-insertion=iwyu"
-    ]
+    ],
+    "C_Cpp.default.compileCommands": "${workspaceFolder}/build/compile_commands.json"
 }
