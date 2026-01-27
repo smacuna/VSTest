@@ -33,9 +33,15 @@ MySynthAudioProcessor::MySynthAudioProcessor()
   chordModeParam = apvts.getRawParameterValue("chordMode");
   lowNoteParam = apvts.getRawParameterValue("lowNote");
   highNoteParam = apvts.getRawParameterValue("highNote");
+
+  apvts.addParameterListener("lowNote", this);
+  apvts.addParameterListener("highNote", this);
 }
 
-MySynthAudioProcessor::~MySynthAudioProcessor() {}
+MySynthAudioProcessor::~MySynthAudioProcessor() {
+  apvts.removeParameterListener("lowNote", this);
+  apvts.removeParameterListener("highNote", this);
+}
 
 juce::AudioProcessorValueTreeState::ParameterLayout
 MySynthAudioProcessor::createParameterLayout() {
@@ -71,9 +77,18 @@ MySynthAudioProcessor::createParameterLayout() {
                                                         "Chord Mode", true));
 
   layout.add(std::make_unique<juce::AudioParameterInt>(
-      "lowNote", "Low Limit", 0, 127, 48)); // Default C3
+      juce::ParameterID("lowNote", 1), "Low Limit", 0, 127, 48,
+      juce::AudioParameterIntAttributes().withStringFromValueFunction(
+          [](int value, int) {
+            return juce::MidiMessage::getMidiNoteName(value, true, true, 3);
+          }))); // Default C3
+
   layout.add(std::make_unique<juce::AudioParameterInt>(
-      "highNote", "High Limit", 0, 127, 84)); // Default C6
+      juce::ParameterID("highNote", 1), "High Limit", 0, 127, 84,
+      juce::AudioParameterIntAttributes().withStringFromValueFunction(
+          [](int value, int) {
+            return juce::MidiMessage::getMidiNoteName(value, true, true, 3);
+          }))); // Default C6
 
   return layout;
 }
@@ -453,6 +468,39 @@ void MySynthAudioProcessor::setStateInformation(const void *data,
   if (xmlState.get() != nullptr)
     if (xmlState->hasTagName(apvts.state.getType()))
       apvts.replaceState(juce::ValueTree::fromXml(*xmlState));
+}
+
+void MySynthAudioProcessor::parameterChanged(const juce::String &parameterID,
+                                             float newValue) {
+  if (parameterID == "lowNote") {
+    // If Low Note moves up, ensure High Note is at least 12 semitones above
+    auto *highParam =
+        dynamic_cast<juce::AudioParameterInt *>(apvts.getParameter("highNote"));
+    int currentLow = static_cast<int>(newValue);
+    int currentHigh = highParam->get();
+
+    if (currentHigh < currentLow + 12) {
+      // Push High Note up
+      highParam->beginChangeGesture();
+      highParam->setValueNotifyingHost(
+          highParam->convertTo0to1(currentLow + 12));
+      highParam->endChangeGesture();
+    }
+  } else if (parameterID == "highNote") {
+    // If High Note moves down, ensure Low Note is at least 12 semitones below
+    auto *lowParam =
+        dynamic_cast<juce::AudioParameterInt *>(apvts.getParameter("lowNote"));
+    int currentHigh = static_cast<int>(newValue);
+    int currentLow = lowParam->get();
+
+    if (currentLow > currentHigh - 12) {
+      // Push Low Note down
+      lowParam->beginChangeGesture();
+      lowParam->setValueNotifyingHost(
+          lowParam->convertTo0to1(currentHigh - 12));
+      lowParam->endChangeGesture();
+    }
+  }
 }
 
 // Creation function

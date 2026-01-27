@@ -3,7 +3,9 @@
 #include "SynthVoice.h"
 #include <JuceHeader.h>
 
-class MySynthAudioProcessor : public juce::AudioProcessor {
+class MySynthAudioProcessor
+    : public juce::AudioProcessor,
+      public juce::AudioProcessorValueTreeState::Listener {
 public:
   MySynthAudioProcessor();
   ~MySynthAudioProcessor() override;
@@ -35,6 +37,8 @@ public:
 
   void getStateInformation(juce::MemoryBlock &destData) override;
   void setStateInformation(const void *data, int sizeInBytes) override;
+  void parameterChanged(const juce::String &parameterID,
+                        float newValue) override;
 
   // Parameter Layout
   static juce::AudioProcessorValueTreeState::ParameterLayout

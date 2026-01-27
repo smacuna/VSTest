@@ -232,7 +232,7 @@ void MySynthAudioProcessorEditor::resized() {
   oscSelector.setBounds(topArea.removeFromLeft(100).reduced(0, 5));
 
   // Toggle Button
-  chordModeToggle.setBounds(topArea.removeFromLeft(100).reduced(0, 5));
+  chordModeToggle.setBounds(topArea.removeFromRight(120).reduced(5, 5));
 
   // Sliders area
   auto sliderArea = area.removeFromTop(200);
@@ -266,22 +266,22 @@ void MySynthAudioProcessorEditor::resized() {
   // Cutoff
   auto cutoffArea = filterArea.removeFromLeft(filterSliderWidth);
   cutoffArea.removeFromTop(20);
-  cutoffSlider.setBounds(cutoffArea.reduced(padding));
+  cutoffSlider.setBounds(cutoffArea.reduced(25));
 
   // Resonance
   auto resArea = filterArea.removeFromLeft(filterSliderWidth);
   resArea.removeFromTop(20);
-  resSlider.setBounds(resArea.reduced(padding));
+  resSlider.setBounds(resArea.reduced(25));
 
   // Low Note
   auto lowArea = filterArea.removeFromLeft(filterSliderWidth);
   lowArea.removeFromTop(20);
-  lowNoteSlider.setBounds(lowArea.reduced(padding));
+  lowNoteSlider.setBounds(lowArea.reduced(25));
 
   // High Note
   auto highArea = filterArea.removeFromLeft(filterSliderWidth);
   highArea.removeFromTop(20);
-  highNoteSlider.setBounds(highArea.reduced(padding));
+  highNoteSlider.setBounds(highArea.reduced(25));
 
   // Modifiers Area (Bottom)
   auto modArea = area.reduced(10, 0);
