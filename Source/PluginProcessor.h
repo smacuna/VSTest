@@ -75,6 +75,10 @@ private:
   std::atomic<float> *lowNoteParam = nullptr;
   std::atomic<float> *highNoteParam = nullptr;
 
+  // Arpeggiator Parameters
+  std::atomic<float> *arpEnabledParam = nullptr;
+  std::atomic<float> *arpRateParam = nullptr;
+
   // Helper to fit note within specific MIDI range (inversions)
   int fitNoteToRange(int note, int low, int high);
 
@@ -96,6 +100,17 @@ private:
 
   // Last Triggered Note (Root) for Display
   std::atomic<int> lastTriggeredNote{-1};
+
+  // Arpeggiator State
+  int currentArpNote = -1;
+  double arpPhase = 0.0;
+  double samplesPerBeat = 0.0;
+  double noteDurationInSamples = 0.0;
+  int arpSortOrder = 0; // 0: Random (for now), could extend
+  juce::Random random;
+
+  // Helper to handle Arp logic
+  void processArpeggiator(juce::MidiBuffer &midiMessages, int numSamples);
 
   // Helper to calculate intervals based on current state
   std::vector<int> getNoteIntervals();

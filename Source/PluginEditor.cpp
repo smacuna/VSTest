@@ -54,6 +54,24 @@ MySynthAudioProcessorEditor::MySynthAudioProcessorEditor(
       std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
           audioProcessor.apvts, "oscType", oscSelector);
 
+  // Arp Enabled
+  addAndMakeVisible(arpEnabledButton);
+  arpEnabledAttachment =
+      std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
+          audioProcessor.apvts, "arpEnabled", arpEnabledButton);
+
+  // Arp Rate
+  arpRateBox.addItem("1/2", 1);
+  arpRateBox.addItem("1/4", 2);
+  arpRateBox.addItem("1/8", 3);
+  arpRateBox.addItem("1/16", 4);
+  arpRateBox.addItem("1/32", 5);
+  arpRateBox.addItem("1/64", 6);
+  addAndMakeVisible(arpRateBox);
+  arpRateAttachment =
+      std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
+          audioProcessor.apvts, "arpRate", arpRateBox);
+
   // Chord Mode Toggle
   addAndMakeVisible(chordModeToggle);
   chordModeAttachment =
@@ -232,7 +250,11 @@ void MySynthAudioProcessorEditor::resized() {
   oscSelector.setBounds(topArea.removeFromLeft(100).reduced(0, 5));
 
   // Toggle Button
-  chordModeToggle.setBounds(topArea.removeFromRight(120).reduced(5, 5));
+  chordModeToggle.setBounds(topArea.removeFromRight(80).reduced(5, 5));
+
+  // Arp Controls
+  arpEnabledButton.setBounds(topArea.removeFromRight(60).reduced(5, 5));
+  arpRateBox.setBounds(topArea.removeFromRight(80).reduced(0, 5));
 
   // Sliders area
   auto sliderArea = area.removeFromTop(200);

@@ -61,6 +61,16 @@ private:
   juce::TextButton maj7Button{"M7"};
   juce::TextButton ninthButton{"9"};
 
+  // Arpeggiator UI
+  juce::ToggleButton arpEnabledButton{"Arp"};
+  std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment>
+      arpEnabledAttachment;
+
+  juce::ComboBox arpRateBox;
+  std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment>
+      arpRateAttachment;
+  juce::Label arpRateLabel;
+
   MyLookAndFeel myLookAndFeel;
 
   JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MySynthAudioProcessorEditor)

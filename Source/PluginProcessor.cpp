@@ -33,6 +33,8 @@ MySynthAudioProcessor::MySynthAudioProcessor()
   chordModeParam = apvts.getRawParameterValue("chordMode");
   lowNoteParam = apvts.getRawParameterValue("lowNote");
   highNoteParam = apvts.getRawParameterValue("highNote");
+  arpEnabledParam = apvts.getRawParameterValue("arpEnabled");
+  arpRateParam = apvts.getRawParameterValue("arpRate");
 
   apvts.addParameterListener("lowNote", this);
   apvts.addParameterListener("highNote", this);
@@ -89,6 +91,20 @@ MySynthAudioProcessor::createParameterLayout() {
           [](int value, int) {
             return juce::MidiMessage::getMidiNoteName(value, true, true, 3);
           }))); // Default C6
+
+  layout.add(std::make_unique<juce::AudioParameterBool>("arpEnabled",
+                                                        "Arpeggiator", false));
+
+  juce::StringArray rateChoices;
+  rateChoices.add("1/2");
+  rateChoices.add("1/4");
+  rateChoices.add("1/8");
+  rateChoices.add("1/16");
+  rateChoices.add("1/32");
+  rateChoices.add("1/64");
+
+  layout.add(std::make_unique<juce::AudioParameterChoice>(
+      "arpRate", "Arp Rate", rateChoices, 2)); // Default 1/8
 
   return layout;
 }
@@ -287,6 +303,9 @@ void MySynthAudioProcessor::processBlock(juce::AudioBuffer<float> &buffer,
 
           // 3. Trigger the NEW note (Last pressed)
 
+          // Arpeggiator Check
+          bool isArpOn = *arpEnabledParam > 0.5f;
+
           auto intervals = getNoteIntervals();
           std::vector<int> currentChordNotes;
 
@@ -294,10 +313,12 @@ void MySynthAudioProcessor::processBlock(juce::AudioBuffer<float> &buffer,
             // Add Root (Fitted)
             int fittedRoot = fitNoteToRange(noteNumber, lowLimit, highLimit);
             if (fittedRoot <= 127) {
-              processedMidi.addEvent(
-                  juce::MidiMessage::noteOn(message.getChannel(), fittedRoot,
-                                            velocity),
-                  metadata.samplePosition);
+              if (!isArpOn) {
+                processedMidi.addEvent(
+                    juce::MidiMessage::noteOn(message.getChannel(), fittedRoot,
+                                              velocity),
+                    metadata.samplePosition);
+              }
               currentChordNotes.push_back(fittedRoot);
             }
 
@@ -306,21 +327,16 @@ void MySynthAudioProcessor::processBlock(juce::AudioBuffer<float> &buffer,
               auto newNote = noteNumber + interval;
               newNote = fitNoteToRange(newNote, lowLimit, highLimit);
               if (newNote <= 127) {
-                processedMidi.addEvent(
-                    juce::MidiMessage::noteOn(message.getChannel(), newNote,
-                                              velocity),
-                    metadata.samplePosition);
+                if (!isArpOn) {
+                  processedMidi.addEvent(
+                      juce::MidiMessage::noteOn(message.getChannel(), newNote,
+                                                velocity),
+                      metadata.samplePosition);
+                }
                 currentChordNotes.push_back(newNote);
               }
             }
           } else {
-            // Single Note (if no chord functionality, just play note - fit to
-            // range?) Assuming we fit single note too if desired, or play raw?
-            // "Telepathic" usually implies playing raw if no modifiers?
-            // Let's fit it to be safe or play raw. The logic says "Single Note"
-            // -> play raw noteNumber. But we should probably check if it was
-            // intended to be limited? User requested limits for "Chord
-            // Generation".
             processedMidi.addEvent(message, metadata.samplePosition);
             currentChordNotes.push_back(noteNumber);
           }
@@ -406,6 +422,9 @@ void MySynthAudioProcessor::processBlock(juce::AudioBuffer<float> &buffer,
   }
   // If not Chord Mode, just pass through (midiMessages stays as is)
 
+  // 2. Process Arpeggiator
+  processArpeggiator(midiMessages, buffer.getNumSamples());
+
   // Render Audio
   synthesiser.renderNextBlock(buffer, midiMessages, 0, buffer.getNumSamples());
 }
@@ -487,7 +506,8 @@ void MySynthAudioProcessor::parameterChanged(const juce::String &parameterID,
       highParam->endChangeGesture();
     }
   } else if (parameterID == "highNote") {
-    // If High Note moves down, ensure Low Note is at least 12 semitones below
+    // If High Note moves down, ensure Low Note is at least 12 semitones
+    // below
     auto *lowParam =
         dynamic_cast<juce::AudioParameterInt *>(apvts.getParameter("lowNote"));
     int currentHigh = static_cast<int>(newValue);
@@ -534,6 +554,108 @@ juce::String MySynthAudioProcessor::getChordName() {
       lastTriggeredNote, isDimPressedVal(), isMinPressedVal(),
       isMajPressedVal(), isSus2PressedVal(), is6PressedVal(),
       isMin7PressedVal(), isMaj7PressedVal(), is9PressedVal());
+}
+
+void MySynthAudioProcessor::processArpeggiator(juce::MidiBuffer &midiMessages,
+                                               int numSamples) {
+  bool isArpOn = *arpEnabledParam > 0.5f;
+
+  // Simple clean up if Arp was just turned off
+  if (!isArpOn) {
+    if (currentArpNote != -1) {
+      midiMessages.addEvent(juce::MidiMessage::noteOff(1, currentArpNote, 0.0f),
+                            0);
+      currentArpNote = -1;
+    }
+    return;
+  }
+
+  // If no chord is active, stop arp
+  if (activeChordNotes.empty()) {
+    if (currentArpNote != -1) {
+      midiMessages.addEvent(juce::MidiMessage::noteOff(1, currentArpNote, 0.0f),
+                            0);
+      currentArpNote = -1;
+    }
+    return;
+  }
+
+  // Calculate Rate
+  double bpm = 120.0;
+  if (auto *ph = getPlayHead()) {
+    if (auto position = ph->getPosition()) {
+      if (position->getBpm().hasValue())
+        bpm = *position->getBpm();
+    }
+  }
+
+  int rateIndex = static_cast<int>(*arpRateParam);
+  // validation
+  if (rateIndex < 0)
+    rateIndex = 0;
+  if (rateIndex > 5)
+    rateIndex = 5;
+
+  // "1/2", "1/4", "1/8", "1/16", "1/32", "1/64"
+  double denominator = std::pow(2.0, rateIndex + 1); // 2^1=2, 2^2=4, ...
+  double beatsPerSec = bpm / 60.0;
+  double samplesPerSec = getSampleRate();
+  double samplesPerBeat = samplesPerSec / beatsPerSec;
+  double samplesPerStep = samplesPerBeat * (4.0 / denominator);
+
+  // Collect all valid notes from active chords
+  std::vector<int> pool;
+  for (auto const &[root, notes] : activeChordNotes) {
+    for (int n : notes) {
+      if (n >= 0 && n <= 127)
+        pool.push_back(n);
+    }
+  }
+
+  if (pool.empty())
+    return;
+
+  // Run Arp Logic
+  // Phase goes from 0 to samplesPerStep
+  // In this block, we advance phase by numSamples.
+  // If phase crosses threshold, trigger.
+
+  double samplesRemainingInBlock = numSamples;
+  int currentSampleOffset = 0;
+
+  while (samplesRemainingInBlock > 0) {
+    double samplesUntilNextTrigger = samplesPerStep - arpPhase;
+
+    if (samplesUntilNextTrigger <= samplesRemainingInBlock) {
+      // Trigger happens in this block
+      int triggerOffset = currentSampleOffset + (int)samplesUntilNextTrigger;
+
+      // 1. Note Off Previous
+      if (currentArpNote != -1) {
+        midiMessages.addEvent(
+            juce::MidiMessage::noteOff(1, currentArpNote, 0.0f), triggerOffset);
+      }
+
+      // 2. Pick New Note (Random)
+      int randIndex = random.nextInt((int)pool.size());
+      currentArpNote = pool[randIndex];
+
+      // 3. Note On New
+      midiMessages.addEvent(juce::MidiMessage::noteOn(1, currentArpNote, 1.0f),
+                            triggerOffset);
+
+      // Reset Phase
+      arpPhase = 0;
+      // Technically we should subtract the utilized samples
+      double utilized = samplesUntilNextTrigger;
+      currentSampleOffset += (int)utilized;
+      samplesRemainingInBlock -= utilized;
+    } else {
+      // No trigger in rest of block
+      arpPhase += samplesRemainingInBlock;
+      samplesRemainingInBlock = 0;
+    }
+  }
 }
 
 juce::AudioProcessor *JUCE_CALLTYPE createPluginFilter() {
