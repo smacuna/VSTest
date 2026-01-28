@@ -174,25 +174,46 @@ MySynthAudioProcessorEditor::MySynthAudioProcessorEditor(
       std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
           audioProcessor.apvts, "filterEnv", filterEnvSlider);
 
-  // Low Note Slider
-  lowNoteSlider.setSliderStyle(
+  // Shift Slider Logic
+  // Range: 24 (C0) to 127 (G8)
+  rangeShiftSlider.setSliderStyle(
       juce::Slider::SliderStyle::RotaryHorizontalVerticalDrag);
-  lowNoteSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, true, 50, 25);
-  addAndMakeVisible(lowNoteSlider);
+  rangeShiftSlider.setTextBoxStyle(juce::Slider::NoTextBox, true, 0, 0);
+  rangeShiftSlider.setRange(24.0, 127.0, 1.0);
+  addAndMakeVisible(rangeShiftSlider);
 
-  lowNoteAttachment =
-      std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
-          audioProcessor.apvts, "lowNote", lowNoteSlider);
+  rangeShiftSlider.onValueChange = [this]() {
+    // 1. Calculate current width
+    int currentLow = 24;
+    int currentHigh = 24;
 
-  // High Note Slider
-  highNoteSlider.setSliderStyle(
-      juce::Slider::SliderStyle::RotaryHorizontalVerticalDrag);
-  highNoteSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, true, 50, 25);
-  addAndMakeVisible(highNoteSlider);
+    if (auto *p = audioProcessor.apvts.getParameter("lowNote"))
+      currentLow = (int)p->convertFrom0to1(p->getValue());
+    if (auto *p = audioProcessor.apvts.getParameter("highNote"))
+      currentHigh = (int)p->convertFrom0to1(p->getValue());
 
-  highNoteAttachment =
-      std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
-          audioProcessor.apvts, "highNote", highNoteSlider);
+    int width = currentHigh - currentLow;
+
+    // 2. Get target Low from slider
+    int newLow = (int)rangeShiftSlider.getValue();
+
+    // 3. Calculate target High
+    int newHigh = newLow + width;
+
+    // 4. Constraint (Clamp High to 127)
+    if (newHigh > 127) {
+      newHigh = 127;
+      newLow = newHigh - width; // Push back low
+    }
+
+    // 5. Update Params in Processor
+    if (auto *p = audioProcessor.apvts.getParameter("lowNote"))
+      p->setValueNotifyingHost(p->convertTo0to1((float)newLow));
+    if (auto *p = audioProcessor.apvts.getParameter("highNote"))
+      p->setValueNotifyingHost(p->convertTo0to1((float)newHigh));
+
+    repaint();
+  };
 
   // Modifiers
   auto setupModifier = [this](juce::TextButton &b) {
@@ -222,6 +243,17 @@ MySynthAudioProcessorEditor::~MySynthAudioProcessorEditor() {
 
 void MySynthAudioProcessorEditor::timerCallback() {
   repaint();
+
+  // Sync Shift Slider with Low Note Parameter if not dragging
+  if (!rangeShiftSlider.isMouseButtonDown()) {
+    if (auto *p = audioProcessor.apvts.getParameter("lowNote")) {
+      int currentLow = (int)p->convertFrom0to1(p->getValue());
+      if ((int)rangeShiftSlider.getValue() != currentLow) {
+        rangeShiftSlider.setValue((double)currentLow,
+                                  juce::dontSendNotification);
+      }
+    }
+  }
 
   auto setButtonState = [](juce::TextButton &b, bool active) {
     if (active) {
@@ -329,6 +361,9 @@ void MySynthAudioProcessorEditor::paint(juce::Graphics &g) {
 
   // Piano
   auto pianoArea = area.removeFromTop(pianoHeight);
+
+  // Exclude Shift Slider Area from Visualization
+  pianoArea.removeFromRight(68);
 
   g.drawRect(pianoArea, 1.0f);
 
@@ -656,10 +691,15 @@ void MySynthAudioProcessorEditor::resized() {
   filterEnvSlider.setBounds(envArea.reduced(padding));
 
   // Piano Area Limits
-  // Place Low Note on left, High Note on right
-  auto pianoLimits = pianoArea.reduced(5);
-  lowNoteSlider.setBounds(pianoLimits.removeFromLeft(80));
-  highNoteSlider.setBounds(pianoLimits.removeFromRight(80));
+  // We have the rangeShiftSlider on the right (68 pixels width as requested)
+  // And the piano visualization takes the rest.
+
+  auto shiftControlArea = pianoArea.removeFromRight(68);
+  rangeShiftSlider.setBounds(shiftControlArea.reduced(5));
+
+  // The remaining pianoArea is for drawing keys
+  // Store bounds for painting and interaction
+  pianoAreaBounds = pianoArea;
 
   // Modifiers Area (Bottom)
   auto enableChordModeArea = chordsButtonsArea.removeFromLeft(60);
@@ -717,4 +757,175 @@ void MySynthAudioProcessorEditor::resized() {
 
   arpRateSlider.setBounds(rateControlArea.withSizeKeepingCentre(60, 60));
   arpSeedSlider.setBounds(seedControlArea.withSizeKeepingCentre(60, 60));
+
+  // Store Piano Area for Interaction
+  pianoAreaBounds = pianoArea;
+}
+
+// --- Helper Functions for Piano Interaction ---
+
+float MySynthAudioProcessorEditor::getXForNote(int note) const {
+  if (pianoAreaBounds.isEmpty())
+    return 0.0f;
+
+  const int startNote = 24; // C0
+  const int endNote = 127;
+
+  // Recalculate keyWidth (same logic as paint)
+  int whiteKeyCount = 0;
+  for (int i = startNote; i <= endNote; ++i) {
+    int noteInOctave = i % 12;
+    if (noteInOctave == 0 || noteInOctave == 2 || noteInOctave == 4 ||
+        noteInOctave == 5 || noteInOctave == 7 || noteInOctave == 9 ||
+        noteInOctave == 11) {
+      whiteKeyCount++;
+    }
+  }
+
+  const float keyWidth =
+      (float)pianoAreaBounds.getWidth() / (float)whiteKeyCount;
+
+  float currentX = (float)pianoAreaBounds.getX();
+  for (int i = startNote; i < note;
+       ++i) { // Up to but not including active note
+    int noteInOctave = i % 12;
+    bool isWhite =
+        (noteInOctave == 0 || noteInOctave == 2 || noteInOctave == 4 ||
+         noteInOctave == 5 || noteInOctave == 7 || noteInOctave == 9 ||
+         noteInOctave == 11);
+    if (isWhite)
+      currentX += keyWidth;
+  }
+  return currentX;
+}
+
+int MySynthAudioProcessorEditor::getNoteForX(float x) const {
+  if (pianoAreaBounds.isEmpty())
+    return 24;
+
+  const int startNote = 24;
+  const int endNote = 127;
+
+  int bestNote = startNote;
+  float minDiff = 100000.0f;
+
+  // Let's do a linear search for the closest note boundary.
+  for (int i = startNote; i <= endNote; ++i) {
+    float noteX = getXForNote(i);
+
+    float diff = std::abs(x - noteX);
+    if (diff < minDiff) {
+      minDiff = diff;
+      bestNote = i;
+    }
+  }
+  return bestNote;
+}
+
+void MySynthAudioProcessorEditor::mouseDown(const juce::MouseEvent &e) {
+  if (pianoAreaBounds.contains(e.getPosition())) {
+    // Get current parameter values
+    int currentLow = 24;
+    int currentHigh = 127;
+
+    if (auto *p = audioProcessor.apvts.getParameter("lowNote"))
+      currentLow = (int)p->convertFrom0to1(p->getValue());
+    if (auto *p = audioProcessor.apvts.getParameter("highNote"))
+      currentHigh = (int)p->convertFrom0to1(p->getValue());
+
+    // Calculate positions
+    float lowX = getXForNote(currentLow);
+
+    // Check closest
+    float distToLow = std::abs((float)e.x - lowX);
+
+    // Safety check for 128
+    float highRightEdgeX = (currentHigh < 127)
+                               ? getXForNote(currentHigh + 1)
+                               : (float)pianoAreaBounds.getRight();
+
+    float distToHigh = std::abs((float)e.x - highRightEdgeX);
+
+    const float grabThreshold = 20.0f;
+
+    if (distToLow < grabThreshold && distToLow < distToHigh) {
+      isDraggingLow = true;
+    } else if (distToHigh < grabThreshold) {
+      isDraggingHigh = true;
+    }
+  }
+}
+
+void MySynthAudioProcessorEditor::mouseDrag(const juce::MouseEvent &e) {
+  if (isDraggingLow) {
+    int newLow = getNoteForX((float)e.x);
+
+    int currentHigh = 127;
+    if (auto *p = audioProcessor.apvts.getParameter("highNote"))
+      currentHigh = (int)p->convertFrom0to1(p->getValue());
+
+    // Check collision with High Limit (gap < 12)
+    if (newLow > currentHigh - 12) {
+      // Push High Limit
+      int requiredHigh = newLow + 12;
+
+      // Global Max Constraint
+      if (requiredHigh > 127) {
+        requiredHigh = 127;
+        newLow = requiredHigh - 12; // Clamp Low
+      }
+
+      // Update High Limit
+      if (auto *p = audioProcessor.apvts.getParameter("highNote")) {
+        p->setValueNotifyingHost(p->convertTo0to1((float)requiredHigh));
+      }
+    }
+
+    // Global Min Constraint for Low
+    if (newLow < 24)
+      newLow = 24;
+
+    if (auto *p = audioProcessor.apvts.getParameter("lowNote")) {
+      p->setValueNotifyingHost(p->convertTo0to1((float)newLow));
+    }
+    repaint();
+  } else if (isDraggingHigh) {
+    int boundaryNote = getNoteForX((float)e.x);
+    int newHigh = boundaryNote - 1;
+
+    int currentLow = 24;
+    if (auto *p = audioProcessor.apvts.getParameter("lowNote"))
+      currentLow = (int)p->convertFrom0to1(p->getValue());
+
+    // Check collision with Low Limit (gap < 12)
+    if (newHigh < currentLow + 12) {
+      // Push Low Limit
+      int requiredLow = newHigh - 12;
+
+      // Global Min Constraint
+      if (requiredLow < 24) {
+        requiredLow = 24;
+        newHigh = requiredLow + 12; // Clamp High
+      }
+
+      // Update Low Limit
+      if (auto *p = audioProcessor.apvts.getParameter("lowNote")) {
+        p->setValueNotifyingHost(p->convertTo0to1((float)requiredLow));
+      }
+    }
+
+    // Global Max Constraint for High
+    if (newHigh > 127)
+      newHigh = 127;
+
+    if (auto *p = audioProcessor.apvts.getParameter("highNote")) {
+      p->setValueNotifyingHost(p->convertTo0to1((float)newHigh));
+    }
+    repaint();
+  }
+}
+
+void MySynthAudioProcessorEditor::mouseUp(const juce::MouseEvent &) {
+  isDraggingLow = false;
+  isDraggingHigh = false;
 }

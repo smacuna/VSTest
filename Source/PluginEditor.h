@@ -14,7 +14,17 @@ public:
   void resized() override;
   void timerCallback() override;
 
+  void mouseDown(const juce::MouseEvent &e) override;
+  void mouseDrag(const juce::MouseEvent &e) override;
+  void mouseUp(const juce::MouseEvent &e) override;
+
 private:
+  juce::Rectangle<int> pianoAreaBounds;
+  bool isDraggingLow = false;
+  bool isDraggingHigh = false;
+
+  float getXForNote(int note) const;
+  int getNoteForX(float x) const;
   MySynthAudioProcessor &audioProcessor;
 
   juce::Slider attackSlider;
@@ -28,8 +38,7 @@ private:
 
   juce::TextButton filterEnabledButton;
 
-  juce::Slider lowNoteSlider;
-  juce::Slider highNoteSlider;
+  juce::Slider rangeShiftSlider;
 
   std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>
       attackAttachment;
@@ -67,10 +76,6 @@ private:
       filterEnvAttachment;
   std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment>
       filterEnabledAttachment;
-  std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>
-      lowNoteAttachment;
-  std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>
-      highNoteAttachment;
 
   juce::TextButton chordModeToggle{"Chord Mode"};
   std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment>
