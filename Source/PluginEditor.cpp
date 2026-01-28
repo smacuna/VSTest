@@ -125,6 +125,16 @@ MySynthAudioProcessorEditor::MySynthAudioProcessorEditor(
       std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
           audioProcessor.apvts, "arpRate", arpRateSlider);
 
+  // Arp Seed
+  arpSeedSlider.setSliderStyle(
+      juce::Slider::SliderStyle::RotaryHorizontalVerticalDrag);
+  arpSeedSlider.setTextBoxStyle(juce::Slider::NoTextBox, true, 0, 0);
+  addAndMakeVisible(arpSeedSlider);
+
+  arpSeedAttachment =
+      std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
+          audioProcessor.apvts, "arpSeed", arpSeedSlider);
+
   // Chord Mode Toggle
   setupToggleButton(chordModeToggle);
   chordModeAttachment =
@@ -461,11 +471,12 @@ void MySynthAudioProcessorEditor::resized() {
     auto oscControls = area.reduced(5);
 
     // Left: Enabled Toggle
+    auto enableToggleArea = oscControls.removeFromLeft(55);
     ui.enabledButton.setBounds(
-        oscControls.removeFromLeft(40).withSizeKeepingCentre(30, 30));
+        enableToggleArea.removeFromRight(45).withSizeKeepingCentre(30, 30));
 
     // Right: Level Slider
-    ui.levelSlider.setBounds(oscControls.removeFromRight(30));
+    ui.levelSlider.setBounds(oscControls.removeFromRight(55));
 
     // Center
     auto centerArea = oscControls.reduced(5, 0);
@@ -518,12 +529,11 @@ void MySynthAudioProcessorEditor::resized() {
   releaseSlider.setBounds(releaseArea.reduced(padding));
 
   // Filter Area (Bottom)
-  // Filter Area (Bottom)
-  // Layout: Enabled (50px) | Freq | Res | Env
   auto filterControls = filterArea;
-  auto enabledArea = filterControls.removeFromLeft(50);
+  auto enabledArea = filterControls.removeFromLeft(60);
 
-  filterEnabledButton.setBounds(enabledArea.withSizeKeepingCentre(30, 30));
+  filterEnabledButton.setBounds(
+      enabledArea.removeFromRight(45).withSizeKeepingCentre(30, 30));
 
   const auto filterSliderWidth = filterControls.getWidth() / 3;
 
@@ -594,6 +604,12 @@ void MySynthAudioProcessorEditor::resized() {
   auto enableArpArea = arpeggiatorControlsArea.removeFromLeft(60);
   arpEnabledButton.setBounds(
       enableArpArea.removeFromRight(45).withSizeKeepingCentre(30, 30));
-  auto rateArea = arpeggiatorControlsArea.reduced(10);
-  arpRateSlider.setBounds(rateArea.withSizeKeepingCentre(50, 50));
+  auto rateArea = arpeggiatorControlsArea.reduced(5);
+
+  // Split remaining area for Rate and Seed
+  auto rateControlArea = rateArea.removeFromLeft(rateArea.getWidth() / 2);
+  auto seedControlArea = rateArea;
+
+  arpRateSlider.setBounds(rateControlArea.withSizeKeepingCentre(50, 50));
+  arpSeedSlider.setBounds(seedControlArea.withSizeKeepingCentre(50, 50));
 }

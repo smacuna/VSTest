@@ -97,6 +97,11 @@ private:
       arpRateAttachment;
   juce::Label arpRateLabel;
 
+  juce::Slider arpSeedSlider;
+  std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>
+      arpSeedAttachment;
+  juce::Label arpSeedLabel;
+
   MyLookAndFeel myLookAndFeel;
 
   // Visualizer State

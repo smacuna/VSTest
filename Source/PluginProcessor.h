@@ -123,6 +123,12 @@ private:
   int arpSortOrder = 0; // 0: Random (for now), could extend
   juce::Random random;
 
+  // Deterministic Arp Logic
+  // const int arpSeed = 12345; // Replaced by Parameter
+  std::vector<int> arpPattern; // Stores raw random numbers
+  int arpSequenceStep = 0;
+  void generateArpPattern();
+
   // Helper to handle Arp logic
   void processArpeggiator(juce::MidiBuffer &midiMessages, int numSamples);
 

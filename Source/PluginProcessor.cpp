@@ -49,11 +49,15 @@ MySynthAudioProcessor::MySynthAudioProcessor()
 
   apvts.addParameterListener("lowNote", this);
   apvts.addParameterListener("highNote", this);
+  apvts.addParameterListener("arpSeed", this);
+
+  generateArpPattern();
 }
 
 MySynthAudioProcessor::~MySynthAudioProcessor() {
   apvts.removeParameterListener("lowNote", this);
   apvts.removeParameterListener("highNote", this);
+  apvts.removeParameterListener("arpSeed", this);
 }
 
 juce::AudioProcessorValueTreeState::ParameterLayout
@@ -151,6 +155,9 @@ MySynthAudioProcessor::createParameterLayout() {
 
   layout.add(std::make_unique<juce::AudioParameterChoice>(
       "arpRate", "Arp Rate", rateChoices, 2)); // Default 1/8
+
+  layout.add(std::make_unique<juce::AudioParameterInt>("arpSeed", "Arp Seed", 0,
+                                                       10000, 12345));
 
   return layout;
 }
@@ -576,6 +583,8 @@ void MySynthAudioProcessor::parameterChanged(const juce::String &parameterID,
           lowParam->convertTo0to1(currentHigh - 12));
       lowParam->endChangeGesture();
     }
+  } else if (parameterID == "arpSeed") {
+    generateArpPattern();
   }
 }
 
@@ -633,6 +642,7 @@ void MySynthAudioProcessor::processArpeggiator(juce::MidiBuffer &midiMessages,
                             0);
       currentArpNote = -1;
     }
+    arpSequenceStep = 0; // Reset sequence when no chord played
     return;
   }
 
@@ -693,9 +703,12 @@ void MySynthAudioProcessor::processArpeggiator(juce::MidiBuffer &midiMessages,
             juce::MidiMessage::noteOff(1, currentArpNote, 0.0f), triggerOffset);
       }
 
-      // 2. Pick New Note (Random)
-      int randIndex = random.nextInt((int)pool.size());
+      // 2. Pick New Note (Deterministic based on Seed/Pattern)
+      int rawRandom = arpPattern[arpSequenceStep % arpPattern.size()];
+      int randIndex = std::abs(rawRandom) % (int)pool.size();
       currentArpNote = pool[randIndex];
+
+      arpSequenceStep++;
 
       // Visualization: Send band index (rank % 5) to Editor
       auto writer = visualFifo.write(1);
@@ -717,6 +730,22 @@ void MySynthAudioProcessor::processArpeggiator(juce::MidiBuffer &midiMessages,
       arpPhase += samplesRemainingInBlock;
       samplesRemainingInBlock = 0;
     }
+  }
+}
+
+void MySynthAudioProcessor::generateArpPattern() {
+  int seedVal = 12345;
+  if (auto *p = apvts.getParameter("arpSeed")) {
+    // AudioParameterInt::get() returns int
+    if (auto *intP = dynamic_cast<juce::AudioParameterInt *>(p)) {
+      seedVal = intP->get();
+    }
+  }
+
+  juce::Random rng(seedVal);
+  arpPattern.resize(1024); // Large enough cycle
+  for (int &val : arpPattern) {
+    val = rng.nextInt();
   }
 }
 

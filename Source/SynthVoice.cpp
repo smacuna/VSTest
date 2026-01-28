@@ -17,8 +17,8 @@ void SynthVoice::startNote(int midiNoteNumber, float velocity,
 
   auto hz = juce::MidiMessage::getMidiNoteInHertz(midiNoteNumber);
 
-  oscillatorA.setFrequency(hz * frequencyMultiplierA);
-  oscillatorB.setFrequency(hz * frequencyMultiplierB);
+  oscillatorA.setFrequency(hz * frequencyMultiplierA, true);
+  oscillatorB.setFrequency(hz * frequencyMultiplierB, true);
   adsr.noteOn();
 }
 
