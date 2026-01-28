@@ -21,7 +21,7 @@ private:
   juce::Slider decaySlider;
   juce::Slider sustainSlider;
   juce::Slider releaseSlider;
-  juce::ComboBox oscSelector;
+
   juce::Slider cutoffSlider;
   juce::Slider resSlider;
   juce::Slider lowNoteSlider;
@@ -35,21 +35,25 @@ private:
       sustainAttachment;
   std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>
       releaseAttachment;
-  std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment>
-      oscAttachment;
 
-  // Oscillator UI
-  juce::TextButton oscEnabledButton{"On"};
-  std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment>
-      oscEnabledAttachment;
+  struct OscillatorUI {
+    juce::TextButton enabledButton{"On"};
+    juce::TextButton range16Button{"16"};
+    juce::TextButton range8Button{"8"};
+    juce::TextButton range4Button{"4"};
+    juce::Slider levelSlider;
+    juce::ComboBox typeSelector;
 
-  juce::TextButton osc16Button{"16"};
-  juce::TextButton osc8Button{"8"};
-  juce::TextButton osc4Button{"4"};
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment>
+        enabledAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>
+        levelAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment>
+        typeAttachment;
+  };
 
-  juce::Slider oscLevelSlider;
-  std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>
-      oscLevelAttachment;
+  OscillatorUI oscAUI;
+  OscillatorUI oscBUI;
 
   std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>
       cutoffAttachment;

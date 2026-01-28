@@ -19,35 +19,58 @@ MySynthAudioProcessorEditor::MySynthAudioProcessorEditor(
     addAndMakeVisible(b);
   };
 
-  // Oscillator UI
-  setupToggleButton(oscEnabledButton);
-  oscEnabledAttachment =
-      std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
-          audioProcessor.apvts, "oscEnabled", oscEnabledButton);
+  // --- Helper for Oscillator UI Setup ---
+  auto setupOscUI = [this, setupToggleButton](
+                        OscillatorUI &ui, juce::String enabledId,
+                        juce::String levelId, juce::String rangeId,
+                        juce::String typeId) {
+    // Enabled
+    setupToggleButton(ui.enabledButton);
+    ui.enabledAttachment =
+        std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
+            audioProcessor.apvts, enabledId, ui.enabledButton);
 
-  oscLevelSlider.setSliderStyle(juce::Slider::SliderStyle::LinearVertical);
-  oscLevelSlider.setTextBoxStyle(juce::Slider::NoTextBox, true, 0, 0);
-  addAndMakeVisible(oscLevelSlider);
-  oscLevelAttachment =
-      std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
-          audioProcessor.apvts, "oscLevel", oscLevelSlider);
+    // Level Slider
+    ui.levelSlider.setSliderStyle(juce::Slider::SliderStyle::LinearVertical);
+    ui.levelSlider.setTextBoxStyle(juce::Slider::NoTextBox, true, 0, 0);
+    addAndMakeVisible(ui.levelSlider);
+    ui.levelAttachment =
+        std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
+            audioProcessor.apvts, levelId, ui.levelSlider);
 
-  // Range Buttons (Manual handling via onClick and timer)
-  auto setupRangeButton = [this](juce::TextButton &b, int index) {
-    b.setButtonText(b.getButtonText()); // Keep text
-    b.setClickingTogglesState(false);
-    b.setColour(juce::TextButton::buttonColourId,
-                juce::Colour::fromString("FFced0ce"));
-    b.setColour(juce::TextButton::textColourOffId, juce::Colours::black);
-    addAndMakeVisible(b);
-    b.onClick = [this, index]() {
-      if (auto *p = audioProcessor.apvts.getParameter("oscRange"))
-        p->setValueNotifyingHost(p->convertTo0to1(index));
+    // Range Buttons
+    auto setupRangeButton = [this, rangeId](juce::TextButton &b, int index) {
+      b.setButtonText(b.getButtonText()); // Keep text
+      b.setClickingTogglesState(false);
+      b.setColour(juce::TextButton::buttonColourId,
+                  juce::Colour::fromString("FFced0ce"));
+      b.setColour(juce::TextButton::textColourOffId, juce::Colours::black);
+      addAndMakeVisible(b);
+      b.onClick = [this, rangeId, index]() {
+        if (auto *p = audioProcessor.apvts.getParameter(rangeId))
+          p->setValueNotifyingHost(p->convertTo0to1(index));
+      };
     };
+    setupRangeButton(ui.range16Button, 0);
+    setupRangeButton(ui.range8Button, 1);
+    setupRangeButton(ui.range4Button, 2);
+
+    // Type Selector
+    ui.typeSelector.addItem("Sine", 1);
+    ui.typeSelector.addItem("Saw", 2);
+    ui.typeSelector.addItem("Square", 3);
+    addAndMakeVisible(ui.typeSelector);
+
+    ui.typeAttachment = std::make_unique<
+        juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
+        audioProcessor.apvts, typeId, ui.typeSelector);
   };
-  setupRangeButton(osc16Button, 0);
-  setupRangeButton(osc8Button, 1);
-  setupRangeButton(osc4Button, 2);
+
+  // Initialize Osc A
+  setupOscUI(oscAUI, "oscEnabled", "oscLevel", "oscRange", "oscType");
+
+  // Initialize Osc B
+  setupOscUI(oscBUI, "oscBEnabled", "oscBLevel", "oscBRange", "oscBType");
 
   // Attack Slider
   attackSlider.setSliderStyle(juce::Slider::SliderStyle::LinearVertical);
@@ -85,15 +108,6 @@ MySynthAudioProcessorEditor::MySynthAudioProcessorEditor(
       std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
           audioProcessor.apvts, "release", releaseSlider);
 
-  oscSelector.addItem("Sine", 1);
-  oscSelector.addItem("Saw", 2);
-  oscSelector.addItem("Square", 3);
-  addAndMakeVisible(oscSelector);
-
-  oscAttachment =
-      std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
-          audioProcessor.apvts, "oscType", oscSelector);
-
   // Arp Enabled
   setupToggleButton(arpEnabledButton);
   arpEnabledAttachment =
@@ -112,7 +126,6 @@ MySynthAudioProcessorEditor::MySynthAudioProcessorEditor(
       std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
           audioProcessor.apvts, "arpRate", arpRateBox);
 
-  // Chord Mode Toggle
   // Chord Mode Toggle
   setupToggleButton(chordModeToggle);
   chordModeAttachment =
@@ -160,7 +173,6 @@ MySynthAudioProcessorEditor::MySynthAudioProcessorEditor(
           audioProcessor.apvts, "highNote", highNoteSlider);
 
   // Modifiers
-  // Modifiers
   auto setupModifier = [this](juce::TextButton &b) {
     b.setColour(juce::TextButton::buttonColourId,
                 juce::Colour::fromString("FFced0ce"));
@@ -190,26 +202,31 @@ MySynthAudioProcessorEditor::~MySynthAudioProcessorEditor() {
 void MySynthAudioProcessorEditor::timerCallback() {
   repaint();
 
-  // Update Range Button States
-  if (auto *param = audioProcessor.apvts.getParameter("oscRange")) {
-    float val = param->convertFrom0to1(param->getValue());
-    int index = static_cast<int>(std::round(val));
+  auto setButtonState = [](juce::TextButton &b, bool active) {
+    if (active) {
+      b.setColour(juce::TextButton::buttonColourId,
+                  juce::Colour::fromString("FFced0ce"));
+      b.setColour(juce::TextButton::textColourOffId, juce::Colours::black);
+    } else {
+      b.setColour(juce::TextButton::buttonColourId, juce::Colours::darkgrey);
+      b.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
+    }
+  };
 
-    auto setButtonState = [](juce::TextButton &b, bool active) {
-      if (active) {
-        b.setColour(juce::TextButton::buttonColourId,
-                    juce::Colour::fromString("FFced0ce"));
-        b.setColour(juce::TextButton::textColourOffId, juce::Colours::black);
-      } else {
-        b.setColour(juce::TextButton::buttonColourId, juce::Colours::darkgrey);
-        b.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
-      }
-    };
+  auto updateRangeVisuals = [this, setButtonState](OscillatorUI &ui,
+                                                   juce::String rangeId) {
+    if (auto *param = audioProcessor.apvts.getParameter(rangeId)) {
+      float val = param->convertFrom0to1(param->getValue());
+      int index = static_cast<int>(std::round(val));
 
-    setButtonState(osc16Button, index == 0);
-    setButtonState(osc8Button, index == 1);
-    setButtonState(osc4Button, index == 2);
-  }
+      setButtonState(ui.range16Button, index == 0);
+      setButtonState(ui.range8Button, index == 1);
+      setButtonState(ui.range4Button, index == 2);
+    }
+  };
+
+  updateRangeVisuals(oscAUI, "oscRange");
+  updateRangeVisuals(oscBUI, "oscBRange");
 
   // Update Modifier States
   dimButton.setToggleState(audioProcessor.isDimPressedVal(),
@@ -278,7 +295,7 @@ void MySynthAudioProcessorEditor::paint(juce::Graphics &g) {
 
   g.drawRect(arpeggiatorArea, 1.0f);
 
-  // Palabras
+  // Labels
 
   g.setColour(fontColor);
   g.setFont(15.0f);
@@ -290,11 +307,6 @@ void MySynthAudioProcessorEditor::paint(juce::Graphics &g) {
 
   auto labelBArea = oscBArea.removeFromTop(40).reduced(5);
   g.drawFittedText("OSC B", labelBArea, juce::Justification::left, 1);
-
-  // Filter
-  //   auto filterLabelArea = filterArea.removeFromTop(40);
-  //   g.drawFittedText("Filter", filterLabelArea, juce::Justification::left,
-  //   1);
 
   const auto filterSliderWidth = filterArea.getWidth() / 4;
 
@@ -309,11 +321,6 @@ void MySynthAudioProcessorEditor::paint(juce::Graphics &g) {
                    juce::Justification::centred, 1);
   g.drawFittedText("Env", envRect.removeFromTop(20),
                    juce::Justification::centred, 1);
-
-  // Envelope
-  //   auto envelopeLabelArea = envelopeArea.removeFromTop(40);
-  //   g.drawFittedText("Envelope", envelopeLabelArea,
-  //   juce::Justification::left, 1);
 
   const auto sliderWidth = envelopeArea.getWidth() / 4;
 
@@ -386,43 +393,43 @@ void MySynthAudioProcessorEditor::resized() {
   auto arpeggiatorArea = area;
   auto arpeggiatorControlsArea = arpeggiatorArea.removeFromLeft(moduleWidth);
 
-  // Oscillator UI Layout
-  auto oscControls = oscAArea.reduced(5);
+  // Helper for Osc Layout
+  auto layoutOscUI = [](OscillatorUI &ui, juce::Rectangle<int> area) {
+    auto oscControls = area.reduced(5);
 
-  // Left: Enabled Toggle
-  oscEnabledButton.setBounds(
-      oscControls.removeFromLeft(40).withSizeKeepingCentre(30, 30));
+    // Left: Enabled Toggle
+    ui.enabledButton.setBounds(
+        oscControls.removeFromLeft(40).withSizeKeepingCentre(30, 30));
 
-  // Right: Level Slider
-  oscLevelSlider.setBounds(oscControls.removeFromRight(30));
+    // Right: Level Slider
+    ui.levelSlider.setBounds(oscControls.removeFromRight(30));
 
-  // Center
-  auto centerArea = oscControls.reduced(5, 0);
+    // Center
+    auto centerArea = oscControls.reduced(5, 0);
 
-  // Layout for Range Buttons (centered, larger, spaced)
-  auto rangeContainer = centerArea.removeFromTop(centerArea.getHeight() * 0.65);
-  // Define button size and spacing
-  const int rangeBtnSize = 44; // Increased size to 40
-  const int rangeBtnGap = 5;
-  const int totalRangeWidth = (rangeBtnSize * 3) + (rangeBtnGap * 2);
+    // Range Buttons
+    auto rangeContainer =
+        centerArea.removeFromTop(centerArea.getHeight() * 0.65);
+    const int rangeBtnSize = 44;
+    const int rangeBtnGap = 5;
+    const int totalRangeWidth = (rangeBtnSize * 3) + (rangeBtnGap * 2);
 
-  // Center the group of buttons
-  auto rangeGroup =
-      rangeContainer.withSizeKeepingCentre(totalRangeWidth, rangeBtnSize);
+    auto rangeGroup =
+        rangeContainer.withSizeKeepingCentre(totalRangeWidth, rangeBtnSize);
 
-  osc16Button.setBounds(rangeGroup.removeFromLeft(rangeBtnSize));
-  rangeGroup.removeFromLeft(rangeBtnGap);
-  osc8Button.setBounds(rangeGroup.removeFromLeft(rangeBtnSize));
-  rangeGroup.removeFromLeft(rangeBtnGap);
-  osc4Button.setBounds(rangeGroup.removeFromLeft(rangeBtnSize));
+    ui.range16Button.setBounds(rangeGroup.removeFromLeft(rangeBtnSize));
+    rangeGroup.removeFromLeft(rangeBtnGap);
+    ui.range8Button.setBounds(rangeGroup.removeFromLeft(rangeBtnSize));
+    rangeGroup.removeFromLeft(rangeBtnGap);
+    ui.range4Button.setBounds(rangeGroup.removeFromLeft(rangeBtnSize));
 
-  // Bottom: Type Selector
-  oscSelector.setBounds(
-      centerArea.removeFromTop(30).withSizeKeepingCentre(140, 30));
+    // Bottom: Type Selector
+    ui.typeSelector.setBounds(
+        centerArea.removeFromTop(30).withSizeKeepingCentre(140, 30));
+  };
 
-  //   // Arp Controls
-  //   arpEnabledButton.setBounds(topArea.removeFromRight(60).reduced(5, 5));
-  //   arpRateBox.setBounds(topArea.removeFromRight(80).reduced(0, 5));
+  layoutOscUI(oscAUI, oscAArea);
+  layoutOscUI(oscBUI, oscBArea);
 
   // Sliders area
   const auto sliderWidth = envelopeArea.getWidth() / 4;

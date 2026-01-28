@@ -78,6 +78,11 @@ private:
   std::atomic<float> *oscLevelParam = nullptr;
   std::atomic<float> *oscEnabledParam = nullptr;
 
+  std::atomic<float> *oscBTypeParam = nullptr;
+  std::atomic<float> *oscBRangeParam = nullptr;
+  std::atomic<float> *oscBLevelParam = nullptr;
+  std::atomic<float> *oscBEnabledParam = nullptr;
+
   // Arpeggiator Parameters
   std::atomic<float> *arpEnabledParam = nullptr;
   std::atomic<float> *arpRateParam = nullptr;

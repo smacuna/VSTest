@@ -39,6 +39,11 @@ MySynthAudioProcessor::MySynthAudioProcessor()
   oscLevelParam = apvts.getRawParameterValue("oscLevel");
   oscEnabledParam = apvts.getRawParameterValue("oscEnabled");
 
+  oscBTypeParam = apvts.getRawParameterValue("oscBType");
+  oscBRangeParam = apvts.getRawParameterValue("oscBRange");
+  oscBLevelParam = apvts.getRawParameterValue("oscBLevel");
+  oscBEnabledParam = apvts.getRawParameterValue("oscBEnabled");
+
   apvts.addParameterListener("lowNote", this);
   apvts.addParameterListener("highNote", this);
 }
@@ -91,6 +96,19 @@ MySynthAudioProcessor::createParameterLayout() {
 
   layout.add(std::make_unique<juce::AudioParameterBool>(
       "oscEnabled", "Oscillator Enabled", true));
+
+  // --- Osc B ---
+  layout.add(std::make_unique<juce::AudioParameterChoice>(
+      "oscBType", "Oscillator B Type", oscChoices, 0));
+
+  layout.add(std::make_unique<juce::AudioParameterChoice>(
+      "oscBRange", "Oscillator B Range", rangeChoices, 1)); // Default 8'
+
+  layout.add(std::make_unique<juce::AudioParameterFloat>("oscBLevel", "Level B",
+                                                         0.0f, 1.0f, 0.5f));
+
+  layout.add(std::make_unique<juce::AudioParameterBool>(
+      "oscBEnabled", "Oscillator B Enabled", false));
 
   layout.add(std::make_unique<juce::AudioParameterBool>("chordMode",
                                                         "Chord Mode", true));
@@ -239,13 +257,19 @@ void MySynthAudioProcessor::processBlock(juce::AudioBuffer<float> &buffer,
   float currentOscLevel = oscLevelParam->load();
   float currentOscEnabled = oscEnabledParam->load();
 
+  float currentOscBType = oscBTypeParam->load();
+  float currentOscBRange = oscBRangeParam->load();
+  float currentOscBLevel = oscBLevelParam->load();
+  float currentOscBEnabled = oscBEnabledParam->load();
+
   // Propagate parameters to voices
   for (int i = 0; i < synthesiser.getNumVoices(); ++i) {
     if (auto voice = dynamic_cast<SynthVoice *>(synthesiser.getVoice(i))) {
-      voice->updateParameters(currentAttack, currentDecay, currentSustain,
-                              currentRelease, currentOscType, currentCutoff,
-                              currentResonance, currentOscRange,
-                              currentOscLevel, currentOscEnabled);
+      voice->updateParameters(
+          currentAttack, currentDecay, currentSustain, currentRelease,
+          currentOscType, currentOscBRange, currentOscBLevel,
+          currentOscBEnabled, currentCutoff, currentResonance, currentOscRange,
+          currentOscLevel, currentOscEnabled, currentOscBType);
     }
   }
 
