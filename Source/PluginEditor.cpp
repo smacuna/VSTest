@@ -196,11 +196,11 @@ MySynthAudioProcessorEditor::MySynthAudioProcessorEditor(
 
   // Modifiers
   auto setupModifier = [this](juce::TextButton &b) {
-    b.setColour(juce::TextButton::buttonColourId, juce::Colours::darkgrey);
-    b.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
-    b.setColour(juce::TextButton::buttonOnColourId,
+    b.setColour(juce::TextButton::buttonOnColourId, juce::Colours::darkgrey);
+    b.setColour(juce::TextButton::textColourOnId, juce::Colours::white);
+    b.setColour(juce::TextButton::buttonColourId,
                 juce::Colour::fromString("FFced0ce"));
-    b.setColour(juce::TextButton::textColourOnId, juce::Colours::black);
+    b.setColour(juce::TextButton::textColourOffId, juce::Colours::black);
     b.setClickingTogglesState(false);
     addAndMakeVisible(b);
   };
@@ -259,6 +259,12 @@ void MySynthAudioProcessorEditor::timerCallback() {
   sus2Button.setToggleState(audioProcessor.isSus2PressedVal(),
                             juce::dontSendNotification);
 
+  sixthButton.setToggleState(audioProcessor.is6PressedVal(),
+                             juce::dontSendNotification);
+  min7Button.setToggleState(audioProcessor.isMin7PressedVal(),
+                            juce::dontSendNotification);
+  maj7Button.setToggleState(audioProcessor.isMaj7PressedVal(),
+                            juce::dontSendNotification);
   ninthButton.setToggleState(audioProcessor.is9PressedVal(),
                              juce::dontSendNotification);
 
@@ -604,12 +610,14 @@ void MySynthAudioProcessorEditor::resized() {
   auto enableArpArea = arpeggiatorControlsArea.removeFromLeft(60);
   arpEnabledButton.setBounds(
       enableArpArea.removeFromRight(45).withSizeKeepingCentre(30, 30));
+
+  arpeggiatorControlsArea.removeFromRight(20);
   auto rateArea = arpeggiatorControlsArea.reduced(5);
 
   // Split remaining area for Rate and Seed
   auto rateControlArea = rateArea.removeFromLeft(rateArea.getWidth() / 2);
   auto seedControlArea = rateArea;
 
-  arpRateSlider.setBounds(rateControlArea.withSizeKeepingCentre(50, 50));
-  arpSeedSlider.setBounds(seedControlArea.withSizeKeepingCentre(50, 50));
+  arpRateSlider.setBounds(rateControlArea.withSizeKeepingCentre(60, 60));
+  arpSeedSlider.setBounds(seedControlArea.withSizeKeepingCentre(60, 60));
 }
