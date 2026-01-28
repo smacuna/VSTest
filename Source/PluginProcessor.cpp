@@ -72,9 +72,11 @@ MySynthAudioProcessor::createParameterLayout() {
                                                          0.0f, 1.0f, 1.0f));
 
   // Filter: Cutoff & Resonance
-  layout.add(std::make_unique<juce::AudioParameterFloat>(
-      "cutoff", "Cutoff",
-      juce::NormalisableRange<float>(20.0f, 20000.0f, 1.0f, 0.5f), 1000.0f));
+  auto cutoffRange = juce::NormalisableRange<float>(20.0f, 20000.0f);
+  cutoffRange.setSkewForCentre(640.0f);
+
+  layout.add(std::make_unique<juce::AudioParameterFloat>("cutoff", "Cutoff",
+                                                         cutoffRange, 1000.0f));
   layout.add(std::make_unique<juce::AudioParameterFloat>(
       "resonance", "Resonance", 1.0f, 10.0f, 1.0f));
 

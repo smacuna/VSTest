@@ -186,9 +186,8 @@ MySynthAudioProcessorEditor::MySynthAudioProcessorEditor(
 
   // Modifiers
   auto setupModifier = [this](juce::TextButton &b) {
-    b.setColour(juce::TextButton::buttonColourId,
-                juce::Colour::fromString("FFced0ce"));
-    b.setColour(juce::TextButton::textColourOffId, juce::Colours::black);
+    b.setColour(juce::TextButton::buttonColourId, juce::Colours::darkgrey);
+    b.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
     b.setColour(juce::TextButton::buttonOnColourId,
                 juce::Colour::fromString("FFced0ce"));
     b.setColour(juce::TextButton::textColourOnId, juce::Colours::black);
@@ -369,7 +368,7 @@ void MySynthAudioProcessorEditor::paint(juce::Graphics &g) {
   auto chordsScreenArea = chordsArea.reduced(10);
 
   // Draw Screen Background
-  g.setColour(juce::Colour::fromString("FF696D7D").withAlpha(0.5f));
+  g.setColour(juce::Colour::fromString("FF696D7D"));
   g.fillRoundedRectangle(chordsScreenArea.toFloat(), 10.0f);
 
   // Draw Chord Name
@@ -390,7 +389,7 @@ void MySynthAudioProcessorEditor::paint(juce::Graphics &g) {
   auto arpeggiatorScreenArea = arpeggiatorArea.reduced(10);
 
   // Draw Screen Background
-  g.setColour(juce::Colour::fromString("FF696D7D").withAlpha(0.5f));
+  g.setColour(juce::Colour::fromString("FF696D7D"));
   g.fillRoundedRectangle(arpeggiatorScreenArea.toFloat(), 10.0f);
 }
 
