@@ -99,5 +99,15 @@ private:
 
   MyLookAndFeel myLookAndFeel;
 
+  // Visualizer State
+  struct VisualNote {
+    float x;
+    int bandIndex; // 0-4
+    float width = 10.0f;
+  };
+
+  std::vector<VisualNote> activeVisualNotes;
+  static constexpr float scrollSpeed = 4.0f;
+
   JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MySynthAudioProcessorEditor)
 };

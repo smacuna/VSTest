@@ -249,14 +249,33 @@ void MySynthAudioProcessorEditor::timerCallback() {
   sus2Button.setToggleState(audioProcessor.isSus2PressedVal(),
                             juce::dontSendNotification);
 
-  sixthButton.setToggleState(audioProcessor.is6PressedVal(),
-                             juce::dontSendNotification);
-  min7Button.setToggleState(audioProcessor.isMin7PressedVal(),
-                            juce::dontSendNotification);
-  maj7Button.setToggleState(audioProcessor.isMaj7PressedVal(),
-                            juce::dontSendNotification);
   ninthButton.setToggleState(audioProcessor.is9PressedVal(),
                              juce::dontSendNotification);
+
+  // Arpeggiator Visualization Updates
+  // 1. Read new notes from FIFO
+  auto reader = audioProcessor.visualFifo.read(1);
+  if (reader.blockSize1 > 0) {
+    int bandIndex = audioProcessor.visualBuffer[(size_t)reader.startIndex1];
+
+    VisualNote newNote;
+    newNote.x = (float)getWidth(); // Start off-screen right
+    newNote.bandIndex = bandIndex;
+    activeVisualNotes.push_back(newNote);
+  }
+
+  // 2. Update Positions
+  for (auto &note : activeVisualNotes) {
+    note.x -= scrollSpeed;
+  }
+
+  // 3. Remove off-screen
+  activeVisualNotes.erase(
+      std::remove_if(activeVisualNotes.begin(), activeVisualNotes.end(),
+                     [](const VisualNote &n) { return n.x + n.width < 0; }),
+      activeVisualNotes.end());
+
+  repaint();
 }
 
 void MySynthAudioProcessorEditor::paint(juce::Graphics &g) {
@@ -391,6 +410,28 @@ void MySynthAudioProcessorEditor::paint(juce::Graphics &g) {
   // Draw Screen Background
   g.setColour(juce::Colour::fromString("FF696D7D"));
   g.fillRoundedRectangle(arpeggiatorScreenArea.toFloat(), 10.0f);
+
+  // Draw Visual Notes
+  // Clip to screen area
+  {
+    juce::Graphics::ScopedSaveState saveState(g);
+    g.reduceClipRegion(arpeggiatorScreenArea);
+
+    g.setColour(fontColor);
+
+    // Map bands 0-4 to Height
+    const float bandHeight = arpeggiatorScreenArea.getHeight() / 5.0f;
+
+    for (const auto &note : activeVisualNotes) {
+
+      // Band 0 = Bottom.
+      // y = bottom - (band + 1) * height
+      float yVal =
+          arpeggiatorScreenArea.getBottom() - (note.bandIndex + 1) * bandHeight;
+
+      g.fillRect(note.x, yVal, note.width, bandHeight - 2.0f);
+    }
+  }
 }
 
 void MySynthAudioProcessorEditor::resized() {

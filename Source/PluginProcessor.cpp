@@ -76,7 +76,7 @@ MySynthAudioProcessor::createParameterLayout() {
   cutoffRange.setSkewForCentre(640.0f);
 
   layout.add(std::make_unique<juce::AudioParameterFloat>("cutoff", "Cutoff",
-                                                         cutoffRange, 1000.0f));
+                                                         cutoffRange, 6730.0f));
   layout.add(std::make_unique<juce::AudioParameterFloat>(
       "resonance", "Resonance", 1.0f, 10.0f, 1.0f));
 
@@ -92,7 +92,7 @@ MySynthAudioProcessor::createParameterLayout() {
   oscChoices.add("Square");
 
   layout.add(std::make_unique<juce::AudioParameterChoice>(
-      "oscType", "Oscillator Type", oscChoices, 0));
+      "oscType", "Oscillator Type", oscChoices, 2));
 
   juce::StringArray rangeChoices;
   rangeChoices.add("16");
@@ -100,26 +100,26 @@ MySynthAudioProcessor::createParameterLayout() {
   rangeChoices.add("4");
 
   layout.add(std::make_unique<juce::AudioParameterChoice>(
-      "oscRange", "Oscillator Range", rangeChoices, 1)); // Default 8'
+      "oscRange", "Oscillator Range", rangeChoices, 0)); // Default 16'
 
   layout.add(std::make_unique<juce::AudioParameterFloat>("oscLevel", "Level",
-                                                         0.0f, 1.0f, 0.5f));
+                                                         0.0f, 1.0f, 1.0f));
 
   layout.add(std::make_unique<juce::AudioParameterBool>(
       "oscEnabled", "Oscillator Enabled", true));
 
   // --- Osc B ---
   layout.add(std::make_unique<juce::AudioParameterChoice>(
-      "oscBType", "Oscillator B Type", oscChoices, 0));
+      "oscBType", "Oscillator B Type", oscChoices, 1));
 
   layout.add(std::make_unique<juce::AudioParameterChoice>(
       "oscBRange", "Oscillator B Range", rangeChoices, 1)); // Default 8'
 
   layout.add(std::make_unique<juce::AudioParameterFloat>("oscBLevel", "Level B",
-                                                         0.0f, 1.0f, 0.5f));
+                                                         0.0f, 1.0f, 1.0f));
 
   layout.add(std::make_unique<juce::AudioParameterBool>(
-      "oscBEnabled", "Oscillator B Enabled", false));
+      "oscBEnabled", "Oscillator B Enabled", true));
 
   layout.add(std::make_unique<juce::AudioParameterBool>("chordMode",
                                                         "Chord Mode", true));
@@ -667,6 +667,7 @@ void MySynthAudioProcessor::processArpeggiator(juce::MidiBuffer &midiMessages,
         pool.push_back(n);
     }
   }
+  std::sort(pool.begin(), pool.end());
 
   if (pool.empty())
     return;
@@ -695,6 +696,11 @@ void MySynthAudioProcessor::processArpeggiator(juce::MidiBuffer &midiMessages,
       // 2. Pick New Note (Random)
       int randIndex = random.nextInt((int)pool.size());
       currentArpNote = pool[randIndex];
+
+      // Visualization: Send band index (rank % 5) to Editor
+      auto writer = visualFifo.write(1);
+      if (writer.blockSize1 > 0)
+        visualBuffer[(size_t)writer.startIndex1] = randIndex % 5;
 
       // 3. Note On New
       midiMessages.addEvent(juce::MidiMessage::noteOn(1, currentArpNote, 1.0f),

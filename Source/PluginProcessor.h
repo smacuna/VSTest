@@ -60,6 +60,10 @@ public:
 
   juce::String getChordName();
 
+  // FIFO for Arpeggiator Visualization
+  juce::AbstractFifo visualFifo{64};
+  std::array<int, 64> visualBuffer;
+
 private:
   juce::Synthesiser synthesiser;
 
