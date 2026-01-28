@@ -332,6 +332,103 @@ void MySynthAudioProcessorEditor::paint(juce::Graphics &g) {
 
   g.drawRect(pianoArea, 1.0f);
 
+  // --- Draw Piano Keys ---
+  // Start from C0 (Note 24) to G8 (Note 127)
+  const int startNote = 24; // C0
+  const int endNote = 127;
+  int whiteKeyCount = 0;
+  for (int i = startNote; i <= endNote; ++i) {
+    int noteInOctave = i % 12;
+    // White keys: 0, 2, 4, 5, 7, 9, 11
+    if (noteInOctave == 0 || noteInOctave == 2 || noteInOctave == 4 ||
+        noteInOctave == 5 || noteInOctave == 7 || noteInOctave == 9 ||
+        noteInOctave == 11) {
+      whiteKeyCount++;
+    }
+  }
+
+  const float keyWidth = (float)pianoArea.getWidth() / (float)whiteKeyCount;
+  const float blackKeyWidth = keyWidth * 0.6f;
+  const float blackKeyHeight = (float)pianoArea.getHeight() * 0.6f;
+
+  // Colors
+  const auto activeWhite = juce::Colour::fromString("FFf4f6fc");
+  const auto activeBlack = juce::Colours::black;
+  const auto inactiveWhite = juce::Colours::grey;
+  const auto inactiveBlack = juce::Colour::fromString("FF202020");
+
+  // Get Ranges from Cached Parameters or APVTS
+  // Note: We are in paint(), so accessing APVTS parameters is safe but maybe
+  // strictly speaking we should use the cached values if we had them or valid
+  // listeners. For Editor, reading parameter current value is fine.
+  int lowNote = 0;
+  int highNote = 127;
+
+  if (auto *p = audioProcessor.apvts.getParameter("lowNote"))
+    lowNote = (int)p->convertFrom0to1(p->getValue());
+  if (auto *p = audioProcessor.apvts.getParameter("highNote"))
+    highNote = (int)p->convertFrom0to1(p->getValue());
+
+  // Pass 1: White Keys
+  float currentX = (float)pianoArea.getX();
+  for (int i = startNote; i <= endNote; ++i) {
+    int noteInOctave = i % 12;
+    bool isWhite =
+        (noteInOctave == 0 || noteInOctave == 2 || noteInOctave == 4 ||
+         noteInOctave == 5 || noteInOctave == 7 || noteInOctave == 9 ||
+         noteInOctave == 11);
+
+    if (isWhite) {
+      juce::Colour color =
+          (i >= lowNote && i <= highNote) ? activeWhite : inactiveWhite;
+      g.setColour(color);
+      g.fillRect(currentX, (float)pianoArea.getY(), keyWidth,
+                 (float)pianoArea.getHeight());
+
+      // Border
+      g.setColour(juce::Colours::black);
+      g.drawRect(currentX, (float)pianoArea.getY(), keyWidth,
+                 (float)pianoArea.getHeight(), 1.0f);
+
+      currentX += keyWidth;
+    }
+  }
+
+  // Pass 2: Black Keys
+  // Reset X
+  currentX = (float)pianoArea.getX();
+  for (int i = startNote; i <= endNote; ++i) {
+    int noteInOctave = i % 12;
+    bool isWhite =
+        (noteInOctave == 0 || noteInOctave == 2 || noteInOctave == 4 ||
+         noteInOctave == 5 || noteInOctave == 7 || noteInOctave == 9 ||
+         noteInOctave == 11);
+
+    if (isWhite) {
+      currentX += keyWidth;
+    } else {
+      // It's a black key. It should be drawn centered on the boundary of the
+      // PREVIOUS white key and this one? No, usually drawn ON TOP of the
+      // boundary between the White Key BEFORE it and the White Key AFTER it?
+      // Actually, black keys are 1, 3, 6, 8, 10.
+      // 1 (C#) is between 0 (C) and 2 (D).
+      // So if I am at loop index i=1. The white key C (0) has just been
+      // processed. currentX is currently at the END of C. So the black key
+      // center should be at currentX.
+
+      juce::Colour color =
+          (i >= lowNote && i <= highNote) ? activeBlack : inactiveBlack;
+      g.setColour(color);
+
+      float xPos = currentX - (blackKeyWidth / 2.0f);
+      g.fillRect(xPos, (float)pianoArea.getY(), blackKeyWidth, blackKeyHeight);
+
+      g.setColour(juce::Colours::white.withAlpha(0.3f)); // Subtle outline
+      g.drawRect(xPos, (float)pianoArea.getY(), blackKeyWidth, blackKeyHeight,
+                 1.0f);
+    }
+  }
+
   // Chords
   auto chordsArea = area.removeFromTop(moduleHeight);
 

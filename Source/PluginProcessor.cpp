@@ -129,14 +129,14 @@ MySynthAudioProcessor::createParameterLayout() {
                                                         "Chord Mode", true));
 
   layout.add(std::make_unique<juce::AudioParameterInt>(
-      juce::ParameterID("lowNote", 1), "Low Limit", 0, 127, 48,
+      juce::ParameterID("lowNote", 1), "Low Limit", 24, 127, 48,
       juce::AudioParameterIntAttributes().withStringFromValueFunction(
           [](int value, int) {
             return juce::MidiMessage::getMidiNoteName(value, true, true, 3);
           }))); // Default C3
 
   layout.add(std::make_unique<juce::AudioParameterInt>(
-      juce::ParameterID("highNote", 1), "High Limit", 0, 127, 84,
+      juce::ParameterID("highNote", 1), "High Limit", 24, 127, 84,
       juce::AudioParameterIntAttributes().withStringFromValueFunction(
           [](int value, int) {
             return juce::MidiMessage::getMidiNoteName(value, true, true, 3);
