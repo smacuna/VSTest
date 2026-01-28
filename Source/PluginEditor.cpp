@@ -1,6 +1,12 @@
 #include "PluginEditor.h"
 #include "PluginProcessor.h"
 
+namespace {
+constexpr int START_NOTE = 24; // C0
+constexpr int END_NOTE = 127;  // G8
+constexpr int MIN_GAP = 11;
+} // namespace
+
 MySynthAudioProcessorEditor::MySynthAudioProcessorEditor(
     MySynthAudioProcessor &p)
     : AudioProcessorEditor(&p), audioProcessor(p) {
@@ -179,13 +185,13 @@ MySynthAudioProcessorEditor::MySynthAudioProcessorEditor(
   rangeShiftSlider.setSliderStyle(
       juce::Slider::SliderStyle::RotaryHorizontalVerticalDrag);
   rangeShiftSlider.setTextBoxStyle(juce::Slider::NoTextBox, true, 0, 0);
-  rangeShiftSlider.setRange(24.0, 127.0, 1.0);
+  rangeShiftSlider.setRange((double)START_NOTE, (double)END_NOTE, 1.0);
   addAndMakeVisible(rangeShiftSlider);
 
   rangeShiftSlider.onValueChange = [this]() {
     // 1. Calculate current width
-    int currentLow = 24;
-    int currentHigh = 24;
+    int currentLow = START_NOTE;
+    int currentHigh = START_NOTE;
 
     if (auto *p = audioProcessor.apvts.getParameter("lowNote"))
       currentLow = (int)p->convertFrom0to1(p->getValue());
@@ -201,8 +207,8 @@ MySynthAudioProcessorEditor::MySynthAudioProcessorEditor(
     int newHigh = newLow + width;
 
     // 4. Constraint (Clamp High to 127)
-    if (newHigh > 127) {
-      newHigh = 127;
+    if (newHigh > END_NOTE) {
+      newHigh = END_NOTE;
       newLow = newHigh - width; // Push back low
     }
 
@@ -369,8 +375,8 @@ void MySynthAudioProcessorEditor::paint(juce::Graphics &g) {
 
   // --- Draw Piano Keys ---
   // Start from C0 (Note 24) to G8 (Note 127)
-  const int startNote = 24; // C0
-  const int endNote = 127;
+  const int startNote = START_NOTE; // C0
+  const int endNote = END_NOTE;
   int whiteKeyCount = 0;
   for (int i = startNote; i <= endNote; ++i) {
     int noteInOctave = i % 12;
@@ -392,12 +398,8 @@ void MySynthAudioProcessorEditor::paint(juce::Graphics &g) {
   const auto inactiveWhite = juce::Colours::grey;
   const auto inactiveBlack = juce::Colour::fromString("FF202020");
 
-  // Get Ranges from Cached Parameters or APVTS
-  // Note: We are in paint(), so accessing APVTS parameters is safe but maybe
-  // strictly speaking we should use the cached values if we had them or valid
-  // listeners. For Editor, reading parameter current value is fine.
   int lowNote = 0;
-  int highNote = 127;
+  int highNote = END_NOTE;
 
   if (auto *p = audioProcessor.apvts.getParameter("lowNote"))
     lowNote = (int)p->convertFrom0to1(p->getValue());
@@ -442,15 +444,6 @@ void MySynthAudioProcessorEditor::paint(juce::Graphics &g) {
     if (isWhite) {
       currentX += keyWidth;
     } else {
-      // It's a black key. It should be drawn centered on the boundary of the
-      // PREVIOUS white key and this one? No, usually drawn ON TOP of the
-      // boundary between the White Key BEFORE it and the White Key AFTER it?
-      // Actually, black keys are 1, 3, 6, 8, 10.
-      // 1 (C#) is between 0 (C) and 2 (D).
-      // So if I am at loop index i=1. The white key C (0) has just been
-      // processed. currentX is currently at the END of C. So the black key
-      // center should be at currentX.
-
       juce::Colour color =
           (i >= lowNote && i <= highNote) ? activeBlack : inactiveBlack;
       g.setColour(color);
@@ -463,6 +456,7 @@ void MySynthAudioProcessorEditor::paint(juce::Graphics &g) {
                  1.0f);
     }
   }
+  g.setColour(borderColor);
 
   // Chords
   auto chordsArea = area.removeFromTop(moduleHeight);
@@ -768,8 +762,8 @@ float MySynthAudioProcessorEditor::getXForNote(int note) const {
   if (pianoAreaBounds.isEmpty())
     return 0.0f;
 
-  const int startNote = 24; // C0
-  const int endNote = 127;
+  const int startNote = START_NOTE; // C0
+  const int endNote = END_NOTE;
 
   // Recalculate keyWidth (same logic as paint)
   int whiteKeyCount = 0;
@@ -801,10 +795,10 @@ float MySynthAudioProcessorEditor::getXForNote(int note) const {
 
 int MySynthAudioProcessorEditor::getNoteForX(float x) const {
   if (pianoAreaBounds.isEmpty())
-    return 24;
+    return START_NOTE;
 
-  const int startNote = 24;
-  const int endNote = 127;
+  const int startNote = START_NOTE;
+  const int endNote = END_NOTE;
 
   int bestNote = startNote;
   float minDiff = 100000.0f;
@@ -825,8 +819,8 @@ int MySynthAudioProcessorEditor::getNoteForX(float x) const {
 void MySynthAudioProcessorEditor::mouseDown(const juce::MouseEvent &e) {
   if (pianoAreaBounds.contains(e.getPosition())) {
     // Get current parameter values
-    int currentLow = 24;
-    int currentHigh = 127;
+    int currentLow = START_NOTE;
+    int currentHigh = END_NOTE;
 
     if (auto *p = audioProcessor.apvts.getParameter("lowNote"))
       currentLow = (int)p->convertFrom0to1(p->getValue());
@@ -840,7 +834,7 @@ void MySynthAudioProcessorEditor::mouseDown(const juce::MouseEvent &e) {
     float distToLow = std::abs((float)e.x - lowX);
 
     // Safety check for 128
-    float highRightEdgeX = (currentHigh < 127)
+    float highRightEdgeX = (currentHigh < END_NOTE)
                                ? getXForNote(currentHigh + 1)
                                : (float)pianoAreaBounds.getRight();
 
@@ -860,19 +854,19 @@ void MySynthAudioProcessorEditor::mouseDrag(const juce::MouseEvent &e) {
   if (isDraggingLow) {
     int newLow = getNoteForX((float)e.x);
 
-    int currentHigh = 127;
+    int currentHigh = END_NOTE;
     if (auto *p = audioProcessor.apvts.getParameter("highNote"))
       currentHigh = (int)p->convertFrom0to1(p->getValue());
 
-    // Check collision with High Limit (gap < 12)
-    if (newLow > currentHigh - 12) {
+    // Check collision with High Limit (gap < MIN_GAP)
+    if (newLow > currentHigh - MIN_GAP) {
       // Push High Limit
-      int requiredHigh = newLow + 12;
+      int requiredHigh = newLow + MIN_GAP;
 
       // Global Max Constraint
-      if (requiredHigh > 127) {
-        requiredHigh = 127;
-        newLow = requiredHigh - 12; // Clamp Low
+      if (requiredHigh > END_NOTE) {
+        requiredHigh = END_NOTE;
+        newLow = requiredHigh - MIN_GAP; // Clamp Low
       }
 
       // Update High Limit
@@ -882,8 +876,8 @@ void MySynthAudioProcessorEditor::mouseDrag(const juce::MouseEvent &e) {
     }
 
     // Global Min Constraint for Low
-    if (newLow < 24)
-      newLow = 24;
+    if (newLow < START_NOTE)
+      newLow = START_NOTE;
 
     if (auto *p = audioProcessor.apvts.getParameter("lowNote")) {
       p->setValueNotifyingHost(p->convertTo0to1((float)newLow));
@@ -893,19 +887,19 @@ void MySynthAudioProcessorEditor::mouseDrag(const juce::MouseEvent &e) {
     int boundaryNote = getNoteForX((float)e.x);
     int newHigh = boundaryNote - 1;
 
-    int currentLow = 24;
+    int currentLow = START_NOTE;
     if (auto *p = audioProcessor.apvts.getParameter("lowNote"))
       currentLow = (int)p->convertFrom0to1(p->getValue());
 
-    // Check collision with Low Limit (gap < 12)
-    if (newHigh < currentLow + 12) {
+    // Check collision with Low Limit (gap < MIN_GAP)
+    if (newHigh < currentLow + MIN_GAP) {
       // Push Low Limit
-      int requiredLow = newHigh - 12;
+      int requiredLow = newHigh - MIN_GAP;
 
       // Global Min Constraint
-      if (requiredLow < 24) {
-        requiredLow = 24;
-        newHigh = requiredLow + 12; // Clamp High
+      if (requiredLow < START_NOTE) {
+        requiredLow = START_NOTE;
+        newHigh = requiredLow + MIN_GAP; // Clamp High
       }
 
       // Update Low Limit
@@ -915,8 +909,8 @@ void MySynthAudioProcessorEditor::mouseDrag(const juce::MouseEvent &e) {
     }
 
     // Global Max Constraint for High
-    if (newHigh > 127)
-      newHigh = 127;
+    if (newHigh > END_NOTE)
+      newHigh = END_NOTE;
 
     if (auto *p = audioProcessor.apvts.getParameter("highNote")) {
       p->setValueNotifyingHost(p->convertTo0to1((float)newHigh));
