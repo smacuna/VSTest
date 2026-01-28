@@ -27,7 +27,8 @@ public:
 
   // Methods to update parameters safely
   void updateParameters(float attack, float decay, float sustain, float release,
-                        float oscType, float cutoff, float resonance);
+                        float oscType, float cutoff, float resonance,
+                        float oscRange, float oscLevel, float oscEnabled);
 
 private:
   juce::dsp::Oscillator<float> oscillator;
@@ -41,6 +42,11 @@ private:
   // Waveform selection
   enum class OscType { Sine = 0, Saw, Square };
   OscType currentOscType{OscType::Sine};
+
+  // Oscillator Controls
+  float frequencyMultiplier{1.0f};
+  float level{1.0f};
+  bool isEnabled{true};
 
   // Helper to set oscillator type
   void setOscillatorType(OscType type);

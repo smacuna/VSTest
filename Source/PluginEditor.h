@@ -37,6 +37,20 @@ private:
       releaseAttachment;
   std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment>
       oscAttachment;
+
+  // Oscillator UI
+  juce::TextButton oscEnabledButton{"On"};
+  std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment>
+      oscEnabledAttachment;
+
+  juce::TextButton osc16Button{"16"};
+  juce::TextButton osc8Button{"8"};
+  juce::TextButton osc4Button{"4"};
+
+  juce::Slider oscLevelSlider;
+  std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>
+      oscLevelAttachment;
+
   std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>
       cutoffAttachment;
   std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>
@@ -46,7 +60,7 @@ private:
   std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>
       highNoteAttachment;
 
-  juce::ToggleButton chordModeToggle{"Chord Mode"};
+  juce::TextButton chordModeToggle{"Chord Mode"};
   std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment>
       chordModeAttachment;
 
@@ -62,7 +76,7 @@ private:
   juce::TextButton ninthButton{"9"};
 
   // Arpeggiator UI
-  juce::ToggleButton arpEnabledButton{"Arp"};
+  juce::TextButton arpEnabledButton{"Arp"};
   std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment>
       arpEnabledAttachment;
 

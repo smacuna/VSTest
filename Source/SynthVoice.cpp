@@ -15,7 +15,8 @@ void SynthVoice::startNote(int midiNoteNumber, float velocity,
   juce::ignoreUnused(sound, currentPitchWheelPosition);
 
   oscillator.setFrequency(
-      juce::MidiMessage::getMidiNoteInHertz(midiNoteNumber));
+      juce::MidiMessage::getMidiNoteInHertz(midiNoteNumber) *
+      frequencyMultiplier);
   adsr.noteOn();
 }
 
@@ -63,7 +64,21 @@ void SynthVoice::prepareToPlay(double sampleRate, int samplesPerBlock,
 
 void SynthVoice::updateParameters(float attack, float decay, float sustain,
                                   float release, float oscType, float cutoff,
-                                  float resonance) {
+                                  float resonance, float oscRange,
+                                  float oscLevel, float oscEnabled) {
+  isEnabled = oscEnabled > 0.5f;
+  level = oscLevel;
+
+  int rangeIndex = static_cast<int>(oscRange);
+  if (rangeIndex == 0)
+    frequencyMultiplier = 0.5f; // 16'
+  else if (rangeIndex == 1)
+    frequencyMultiplier = 1.0f; // 8'
+  else if (rangeIndex == 2)
+    frequencyMultiplier = 2.0f; // 4'
+
+  // Update Master Gain based on Level
+  gain.setGainLinear(0.3f * level);
   // Update ADSR
   auto adsrParams = adsr.getParameters();
   adsrParams.attack = attack;
@@ -120,7 +135,11 @@ void SynthVoice::renderNextBlock(juce::AudioBuffer<float> &outputBuffer,
   juce::dsp::ProcessContextReplacing<float> context(contextBlock);
 
   // Process Chain
-  oscillator.process(context);
+  if (isEnabled) {
+    oscillator.process(context);
+  } else {
+    contextBlock.clear();
+  }
 
   // Apply Filter
   filter.process(context);

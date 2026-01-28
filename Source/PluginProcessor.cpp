@@ -35,6 +35,9 @@ MySynthAudioProcessor::MySynthAudioProcessor()
   highNoteParam = apvts.getRawParameterValue("highNote");
   arpEnabledParam = apvts.getRawParameterValue("arpEnabled");
   arpRateParam = apvts.getRawParameterValue("arpRate");
+  oscRangeParam = apvts.getRawParameterValue("oscRange");
+  oscLevelParam = apvts.getRawParameterValue("oscLevel");
+  oscEnabledParam = apvts.getRawParameterValue("oscEnabled");
 
   apvts.addParameterListener("lowNote", this);
   apvts.addParameterListener("highNote", this);
@@ -74,6 +77,20 @@ MySynthAudioProcessor::createParameterLayout() {
 
   layout.add(std::make_unique<juce::AudioParameterChoice>(
       "oscType", "Oscillator Type", oscChoices, 0));
+
+  juce::StringArray rangeChoices;
+  rangeChoices.add("16");
+  rangeChoices.add("8");
+  rangeChoices.add("4");
+
+  layout.add(std::make_unique<juce::AudioParameterChoice>(
+      "oscRange", "Oscillator Range", rangeChoices, 1)); // Default 8'
+
+  layout.add(std::make_unique<juce::AudioParameterFloat>("oscLevel", "Level",
+                                                         0.0f, 1.0f, 0.5f));
+
+  layout.add(std::make_unique<juce::AudioParameterBool>(
+      "oscEnabled", "Oscillator Enabled", true));
 
   layout.add(std::make_unique<juce::AudioParameterBool>("chordMode",
                                                         "Chord Mode", true));
@@ -218,13 +235,17 @@ void MySynthAudioProcessor::processBlock(juce::AudioBuffer<float> &buffer,
   float currentResonance = resonanceParam->load();
   int lowLimit = static_cast<int>(lowNoteParam->load());
   int highLimit = static_cast<int>(highNoteParam->load());
+  float currentOscRange = oscRangeParam->load();
+  float currentOscLevel = oscLevelParam->load();
+  float currentOscEnabled = oscEnabledParam->load();
 
   // Propagate parameters to voices
   for (int i = 0; i < synthesiser.getNumVoices(); ++i) {
     if (auto voice = dynamic_cast<SynthVoice *>(synthesiser.getVoice(i))) {
       voice->updateParameters(currentAttack, currentDecay, currentSustain,
                               currentRelease, currentOscType, currentCutoff,
-                              currentResonance);
+                              currentResonance, currentOscRange,
+                              currentOscLevel, currentOscEnabled);
     }
   }
 

@@ -19,6 +19,8 @@ public:
               juce::Colours::darkgrey);
     setColour(juce::Slider::trackColourId, juce::Colours::darkgrey);
     setColour(juce::Slider::backgroundColourId, juce::Colours::black);
+    setColour(juce::ComboBox::textColourId,
+              juce::Colour::fromString("FF191919"));
   }
 
   void drawRotarySlider(juce::Graphics &g, int x, int y, int width, int height,
@@ -56,5 +58,82 @@ public:
                       rotaryStartAngle, angle, true);
     g.setColour(juce::Colours::cyan.withAlpha(0.8f));
     g.strokePath(arc, juce::PathStrokeType(4.0f));
+  }
+
+  void drawButtonBackground(juce::Graphics &g, juce::Button &button,
+                            const juce::Colour &backgroundColour,
+                            bool shouldDrawButtonAsHighlighted,
+                            bool shouldDrawButtonAsDown) override {
+    auto cornerSize = 6.0f;
+    auto bounds = button.getLocalBounds().toFloat().reduced(0.5f, 0.5f);
+
+    auto baseColour =
+        backgroundColour
+            .withMultipliedSaturation(button.hasKeyboardFocus(true) ? 1.3f
+                                                                    : 0.9f)
+            .withMultipliedAlpha(button.isEnabled() ? 1.0f : 0.5f);
+
+    if (shouldDrawButtonAsDown || shouldDrawButtonAsHighlighted)
+      baseColour =
+          baseColour.contrasting(shouldDrawButtonAsDown ? 0.2f : 0.05f);
+
+    g.setColour(baseColour);
+    g.fillRoundedRectangle(bounds, cornerSize);
+  }
+
+  void drawLinearSlider(juce::Graphics &g, int x, int y, int width, int height,
+                        float sliderPos, float minSliderPos, float maxSliderPos,
+                        const juce::Slider::SliderStyle style,
+                        juce::Slider &slider) override {
+    if (style == juce::Slider::LinearVertical) {
+      auto trackWidth = 6.0f;
+      auto bounds = juce::Rectangle<float>((float)x, (float)y, (float)width,
+                                           (float)height);
+      auto trackRect =
+          bounds.withSizeKeepingCentre(trackWidth, bounds.getHeight());
+
+      // Draw track background (darkery grey/black)
+      g.setColour(juce::Colours::black);
+      g.fillRoundedRectangle(trackRect, trackWidth * 0.5f);
+
+      // Calculate fill height
+      auto valueRatio = (float)((slider.getValue() - slider.getMinimum()) /
+                                (slider.getMaximum() - slider.getMinimum()));
+
+      auto barHeight = bounds.getHeight() * valueRatio;
+      auto barRect = trackRect.removeFromBottom(barHeight);
+
+      g.setColour(juce::Colour::fromString("FFced0ce"));
+      g.fillRoundedRectangle(barRect, trackWidth * 0.5f);
+    } else {
+      // Fallback for other linear styles if any (none used yet)
+      juce::LookAndFeel_V4::drawLinearSlider(g, x, y, width, height, sliderPos,
+                                             minSliderPos, maxSliderPos, style,
+                                             slider);
+    }
+  }
+
+  void drawComboBox(juce::Graphics &g, int width, int height, bool isButtonDown,
+                    int buttonX, int buttonY, int buttonW, int buttonH,
+                    juce::ComboBox &box) override {
+    auto cornerSize = 5.0f;
+    juce::Rectangle<int> boxBounds(0, 0, width, height);
+
+    g.setColour(juce::Colour::fromString("FFced0ce"));
+    g.fillRoundedRectangle(boxBounds.toFloat(), cornerSize);
+
+    // Arrow
+    juce::Path path;
+    path.startNewSubPath((float)width - 30.0f, (float)height * 0.5f - 2.0f);
+    path.lineTo((float)width - 25.0f, (float)height * 0.5f + 3.0f);
+    path.lineTo((float)width - 20.0f, (float)height * 0.5f - 2.0f);
+
+    g.setColour(juce::Colour::fromString("FF191919"));
+    g.strokePath(path, juce::PathStrokeType(2.0f));
+  }
+
+  void positionComboBoxText(juce::ComboBox &box, juce::Label &label) override {
+    label.setBounds(0, 0, box.getWidth() - 30, box.getHeight());
+    label.setJustificationType(juce::Justification::centred);
   }
 };

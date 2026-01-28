@@ -74,6 +74,9 @@ private:
   std::atomic<float> *chordModeParam = nullptr;
   std::atomic<float> *lowNoteParam = nullptr;
   std::atomic<float> *highNoteParam = nullptr;
+  std::atomic<float> *oscRangeParam = nullptr;
+  std::atomic<float> *oscLevelParam = nullptr;
+  std::atomic<float> *oscEnabledParam = nullptr;
 
   // Arpeggiator Parameters
   std::atomic<float> *arpEnabledParam = nullptr;
