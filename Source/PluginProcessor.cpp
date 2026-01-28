@@ -269,8 +269,6 @@ void MySynthAudioProcessor::processBlock(juce::AudioBuffer<float> &buffer,
   float currentOscType = oscTypeParam->load();
   float currentCutoff = cutoffParam->load();
   float currentResonance = resonanceParam->load();
-  int lowLimit = static_cast<int>(lowNoteParam->load());
-  int highLimit = static_cast<int>(highNoteParam->load());
   float currentOscRange = oscRangeParam->load();
   float currentOscLevel = oscLevelParam->load();
   float currentOscEnabled = oscEnabledParam->load();
@@ -316,26 +314,63 @@ void MySynthAudioProcessor::processBlock(juce::AudioBuffer<float> &buffer,
       // ---- HANDLER FOR MODIFIERS (Octave 4: 60-71) ----
       if (noteNumber >= 60 && noteNumber <= 71) {
         bool isNoteOn = message.isNoteOn();
+        bool modifierChanged = false;
 
         // Triads
-        if (noteNumber == 61)
-          isDimPressed = isNoteOn; // C#4
-        if (noteNumber == 63)
-          isMinPressed = isNoteOn; // D#4
-        if (noteNumber == 66)
-          isMajPressed = isNoteOn; // F#4
-        if (noteNumber == 68)
-          isSus2Pressed = isNoteOn; // G#4
+        if (noteNumber == 61 && isDimPressed != isNoteOn) {
+          isDimPressed = isNoteOn;
+          modifierChanged = true;
+        }
+        if (noteNumber == 63 && isMinPressed != isNoteOn) {
+          isMinPressed = isNoteOn;
+          modifierChanged = true;
+        }
+        if (noteNumber == 66 && isMajPressed != isNoteOn) {
+          isMajPressed = isNoteOn;
+          modifierChanged = true;
+        }
+        if (noteNumber == 68 && isSus2Pressed != isNoteOn) {
+          isSus2Pressed = isNoteOn;
+          modifierChanged = true;
+        }
 
         // Extensions
-        if (noteNumber == 60)
-          is6Pressed = isNoteOn; // C4
-        if (noteNumber == 62)
-          isMin7Pressed = isNoteOn; // D4
-        if (noteNumber == 65)
-          isMaj7Pressed = isNoteOn; // F4
-        if (noteNumber == 67)
-          is9Pressed = isNoteOn; // G4
+        if (noteNumber == 60 && is6Pressed != isNoteOn) {
+          is6Pressed = isNoteOn;
+          modifierChanged = true;
+        }
+        if (noteNumber == 62 && isMin7Pressed != isNoteOn) {
+          isMin7Pressed = isNoteOn;
+          modifierChanged = true;
+        }
+        if (noteNumber == 65 && isMaj7Pressed != isNoteOn) {
+          isMaj7Pressed = isNoteOn;
+          modifierChanged = true;
+        }
+        if (noteNumber == 67 && is9Pressed != isNoteOn) {
+          is9Pressed = isNoteOn;
+          modifierChanged = true;
+        }
+
+        // If a modifier changed and we have a chord playing, re-trigger it
+        if (modifierChanged && !heldTriggerNotes.empty()) {
+          // Kill current chord
+          for (auto const &[rootNote, playedNotes] : activeChordNotes) {
+            for (int noteToOff : playedNotes) {
+              if (noteToOff <= 127) {
+                processedMidi.addEvent(
+                    juce::MidiMessage::noteOff(message.getChannel(), noteToOff,
+                                               0.0f), // Force off
+                    metadata.samplePosition);
+              }
+            }
+          }
+          activeChordNotes.clear();
+
+          // Re-trigger last held note with new modifiers
+          int lastNote = heldTriggerNotes.back();
+          playChord(lastNote, 1.0f, metadata.samplePosition, processedMidi);
+        }
 
         // Consume modifier keys (don't play them)
         continue;
@@ -365,47 +400,8 @@ void MySynthAudioProcessor::processBlock(juce::AudioBuffer<float> &buffer,
           activeChordNotes.clear();
 
           // 3. Trigger the NEW note (Last pressed)
-
-          // Arpeggiator Check
-          bool isArpOn = *arpEnabledParam > 0.5f;
-
-          auto intervals = getNoteIntervals();
-          std::vector<int> currentChordNotes;
-
-          if (!intervals.empty()) {
-            // Add Root (Fitted)
-            int fittedRoot = fitNoteToRange(noteNumber, lowLimit, highLimit);
-            if (fittedRoot <= 127) {
-              if (!isArpOn) {
-                processedMidi.addEvent(
-                    juce::MidiMessage::noteOn(message.getChannel(), fittedRoot,
-                                              velocity),
-                    metadata.samplePosition);
-              }
-              currentChordNotes.push_back(fittedRoot);
-            }
-
-            // Add Intervals
-            for (int interval : intervals) {
-              auto newNote = noteNumber + interval;
-              newNote = fitNoteToRange(newNote, lowLimit, highLimit);
-              if (newNote <= 127) {
-                if (!isArpOn) {
-                  processedMidi.addEvent(
-                      juce::MidiMessage::noteOn(message.getChannel(), newNote,
-                                                velocity),
-                      metadata.samplePosition);
-                }
-                currentChordNotes.push_back(newNote);
-              }
-            }
-          } else {
-            processedMidi.addEvent(message, metadata.samplePosition);
-            currentChordNotes.push_back(noteNumber);
-          }
-
-          activeChordNotes[noteNumber] = currentChordNotes;
-          lastTriggeredNote = noteNumber;
+          playChord(noteNumber, velocity, metadata.samplePosition,
+                    processedMidi);
 
           continue; // Handled
         } else if (message.isNoteOff()) {
@@ -431,43 +427,8 @@ void MySynthAudioProcessor::processBlock(juce::AudioBuffer<float> &buffer,
             // 3. Retrigger the specific previous note if available
             if (!heldTriggerNotes.empty()) {
               int noteToRetrigger = heldTriggerNotes.back();
-              // Construct a fake NoteOn to re-run logic
-              float retriggerVel = 1.0f;
-
-              auto intervals = getNoteIntervals();
-              std::vector<int> newChordNotes;
-
-              if (!intervals.empty()) {
-                int fittedRoot =
-                    fitNoteToRange(noteToRetrigger, lowLimit, highLimit);
-                if (fittedRoot <= 127) {
-                  processedMidi.addEvent(
-                      juce::MidiMessage::noteOn(message.getChannel(),
-                                                fittedRoot, retriggerVel),
-                      metadata.samplePosition);
-                  newChordNotes.push_back(fittedRoot);
-                }
-                for (int interval : intervals) {
-                  auto newNote = noteToRetrigger + interval;
-                  newNote = fitNoteToRange(newNote, lowLimit, highLimit);
-                  if (newNote <= 127) {
-                    processedMidi.addEvent(
-                        juce::MidiMessage::noteOn(message.getChannel(), newNote,
-                                                  retriggerVel),
-                        metadata.samplePosition);
-                    newChordNotes.push_back(newNote);
-                  }
-                }
-              } else {
-                processedMidi.addEvent(
-                    juce::MidiMessage::noteOn(message.getChannel(),
-                                              noteToRetrigger, retriggerVel),
-                    metadata.samplePosition);
-                newChordNotes.push_back(noteToRetrigger);
-              }
-
-              activeChordNotes[noteToRetrigger] = newChordNotes;
-              lastTriggeredNote = noteToRetrigger;
+              playChord(noteToRetrigger, 1.0f, metadata.samplePosition,
+                        processedMidi);
             } else {
               lastTriggeredNote = -1;
             }
@@ -747,6 +708,54 @@ void MySynthAudioProcessor::generateArpPattern() {
   for (int &val : arpPattern) {
     val = rng.nextInt();
   }
+}
+
+// Helper to trigger a chord
+void MySynthAudioProcessor::playChord(int triggerNote, float velocity,
+                                      int sampleOffset,
+                                      juce::MidiBuffer &midiMessages) {
+  bool isArpOn = *arpEnabledParam > 0.5f;
+
+  int lowLimit = static_cast<int>(lowNoteParam->load());
+  int highLimit = static_cast<int>(highNoteParam->load());
+
+  auto intervals = getNoteIntervals();
+  std::vector<int> currentChordNotes;
+
+  if (!intervals.empty()) {
+    // Add Root (Fitted)
+    int fittedRoot = fitNoteToRange(triggerNote, lowLimit, highLimit);
+    if (fittedRoot <= 127) {
+      if (!isArpOn) {
+        midiMessages.addEvent(
+            juce::MidiMessage::noteOn(1, fittedRoot, velocity), sampleOffset);
+      }
+      currentChordNotes.push_back(fittedRoot);
+    }
+
+    // Add Intervals
+    for (int interval : intervals) {
+      auto newNote = triggerNote + interval;
+      newNote = fitNoteToRange(newNote, lowLimit, highLimit);
+      if (newNote <= 127) {
+        if (!isArpOn) {
+          midiMessages.addEvent(juce::MidiMessage::noteOn(1, newNote, velocity),
+                                sampleOffset);
+        }
+        currentChordNotes.push_back(newNote);
+      }
+    }
+  } else {
+    // No intervals? Just play the note directly
+    if (!isArpOn) {
+      midiMessages.addEvent(juce::MidiMessage::noteOn(1, triggerNote, velocity),
+                            sampleOffset);
+    }
+    currentChordNotes.push_back(triggerNote);
+  }
+
+  activeChordNotes[triggerNote] = currentChordNotes;
+  lastTriggeredNote = triggerNote;
 }
 
 juce::AudioProcessor *JUCE_CALLTYPE createPluginFilter() {
