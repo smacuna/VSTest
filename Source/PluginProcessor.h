@@ -142,9 +142,13 @@ private:
   // Track physically held trigger keys to handle Last-Note Priority
   std::vector<int> heldTriggerNotes;
 
+  // Track previous limits to detect changes
+  int lastLowLimit = -1;
+  int lastHighLimit = -1;
+
   // Helper to trigger a chord
   void playChord(int triggerNote, float velocity, int sampleOffset,
-                 juce::MidiBuffer &midiMessages);
+                 juce::MidiBuffer &midiMessages, bool isSmartUpdate = false);
 
   JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MySynthAudioProcessor)
 };

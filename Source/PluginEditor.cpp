@@ -121,7 +121,6 @@ MySynthAudioProcessorEditor::MySynthAudioProcessorEditor(
           audioProcessor.apvts, "arpEnabled", arpEnabledButton);
 
   // Arp Rate
-  // Arp Rate
   arpRateSlider.setSliderStyle(
       juce::Slider::SliderStyle::RotaryHorizontalVerticalDrag);
   arpRateSlider.setTextBoxStyle(juce::Slider::NoTextBox, true, 0, 0);

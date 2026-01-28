@@ -278,6 +278,30 @@ void MySynthAudioProcessor::processBlock(juce::AudioBuffer<float> &buffer,
   float currentOscBLevel = oscBLevelParam->load();
   float currentOscBEnabled = oscBEnabledParam->load();
 
+  // 1. Process MIDI for Chord Mode
+  juce::MidiBuffer processedMidi;
+
+  bool isChordModeOn = *chordModeParam > 0.5f;
+
+  // Detect Range Changes
+  int currentLow = static_cast<int>(lowNoteParam->load());
+  int currentHigh = static_cast<int>(highNoteParam->load());
+
+  bool rangeChanged = false;
+  if (lastLowLimit != -1 &&
+      (currentLow != lastLowLimit || currentHigh != lastHighLimit)) {
+    rangeChanged = true;
+  }
+  lastLowLimit = currentLow;
+  lastHighLimit = currentHigh;
+
+  if (rangeChanged && !heldTriggerNotes.empty()) {
+    // Re-evaluate the held note with new range (Smart Update)
+    // IMPORTANT: Write to processedMidi, NOT midiMessages, to bypass the
+    // input loop (modifier detection)
+    playChord(heldTriggerNotes.back(), 1.0f, 0, processedMidi, true);
+  }
+
   // Propagate parameters to voices
   for (int i = 0; i < synthesiser.getNumVoices(); ++i) {
     if (auto voice = dynamic_cast<SynthVoice *>(synthesiser.getVoice(i))) {
@@ -288,11 +312,6 @@ void MySynthAudioProcessor::processBlock(juce::AudioBuffer<float> &buffer,
           currentOscLevel, currentOscEnabled, currentOscBType);
     }
   }
-
-  // 1. Process MIDI for Chord Mode
-  juce::MidiBuffer processedMidi;
-
-  bool isChordModeOn = *chordModeParam > 0.5f;
 
   // Mode Switch Logic: If switching from OFF to ON, kill existing notes (with
   // release)
@@ -369,6 +388,7 @@ void MySynthAudioProcessor::processBlock(juce::AudioBuffer<float> &buffer,
 
           // Re-trigger last held note with new modifiers
           int lastNote = heldTriggerNotes.back();
+          // Use processedMidi to skip re-processing this note as a modifier
           playChord(lastNote, 1.0f, metadata.samplePosition, processedMidi);
         }
 
@@ -713,48 +733,106 @@ void MySynthAudioProcessor::generateArpPattern() {
 // Helper to trigger a chord
 void MySynthAudioProcessor::playChord(int triggerNote, float velocity,
                                       int sampleOffset,
-                                      juce::MidiBuffer &midiMessages) {
+                                      juce::MidiBuffer &midiMessages,
+                                      bool isSmartUpdate) {
   bool isArpOn = *arpEnabledParam > 0.5f;
 
   int lowLimit = static_cast<int>(lowNoteParam->load());
   int highLimit = static_cast<int>(highNoteParam->load());
 
   auto intervals = getNoteIntervals();
-  std::vector<int> currentChordNotes;
+  std::vector<int> targetChordNotes;
 
-  if (!intervals.empty()) {
-    // Add Root (Fitted)
-    int fittedRoot = fitNoteToRange(triggerNote, lowLimit, highLimit);
-    if (fittedRoot <= 127) {
-      if (!isArpOn) {
-        midiMessages.addEvent(
-            juce::MidiMessage::noteOn(1, fittedRoot, velocity), sampleOffset);
-      }
-      currentChordNotes.push_back(fittedRoot);
-    }
+  // Helper lambda to add all instances of a pitch class within range
+  // Constrained to NEVER generate notes below the triggerNote to prevent Root
+  // replacement
+  auto addNotesInRange = [&](int baseNote) {
+    int pitchClass = baseNote % 12;
 
-    // Add Intervals
-    for (int interval : intervals) {
-      auto newNote = triggerNote + interval;
-      newNote = fitNoteToRange(newNote, lowLimit, highLimit);
-      if (newNote <= 127) {
-        if (!isArpOn) {
-          midiMessages.addEvent(juce::MidiMessage::noteOn(1, newNote, velocity),
-                                sampleOffset);
+    int candidate = lowLimit;
+    int candidatePitchClass = candidate % 12;
+
+    int diff = pitchClass - candidatePitchClass;
+    if (diff < 0)
+      diff += 12;
+
+    candidate += diff;
+
+    while (candidate <= highLimit) {
+      if (candidate <= 127) {
+        bool exists = false;
+
+        for (int n : targetChordNotes) {
+          if (n == candidate) {
+            exists = true;
+            break;
+          }
         }
-        currentChordNotes.push_back(newNote);
+        if (!exists)
+          targetChordNotes.push_back(candidate);
       }
+      candidate += 12;
     }
-  } else {
-    // No intervals? Just play the note directly
-    if (!isArpOn) {
-      midiMessages.addEvent(juce::MidiMessage::noteOn(1, triggerNote, velocity),
-                            sampleOffset);
+  };
+
+  // 1. Calculate Target Notes (Filling Strategy)
+
+  // A. Fill Range with Root Octaves
+  addNotesInRange(triggerNote);
+
+  // B. Fill Range with Intervals
+  if (!intervals.empty()) {
+    for (int interval : intervals) {
+      addNotesInRange(triggerNote + interval);
     }
-    currentChordNotes.push_back(triggerNote);
   }
 
-  activeChordNotes[triggerNote] = currentChordNotes;
+  // 2. Diffing or Direct Play
+  std::vector<int> &currentNotes = activeChordNotes[triggerNote];
+
+  if (isSmartUpdate) {
+    // A. Stop notes that are in current but NOT in target
+    for (int oldNote : currentNotes) {
+      bool stillPlaying = false;
+      for (int newNote : targetChordNotes) {
+        if (newNote == oldNote) {
+          stillPlaying = true;
+          break;
+        }
+      }
+      if (!stillPlaying) {
+        midiMessages.addEvent(juce::MidiMessage::noteOff(1, oldNote, 0.0f),
+                              sampleOffset);
+      }
+    }
+
+    // B. Start notes that are in target but NOT in current
+    for (int newNote : targetChordNotes) {
+      bool alreadyPlaying = false;
+      for (int oldNote : currentNotes) {
+        if (oldNote == newNote) {
+          alreadyPlaying = true;
+          break;
+        }
+      }
+      if (!alreadyPlaying && !isArpOn) {
+        midiMessages.addEvent(juce::MidiMessage::noteOn(1, newNote, velocity),
+                              sampleOffset);
+      }
+    }
+
+  } else {
+    // Standard Behavior: Just play them all
+    if (!isArpOn) {
+      for (int note : targetChordNotes) {
+        midiMessages.addEvent(juce::MidiMessage::noteOn(1, note, velocity),
+                              sampleOffset);
+      }
+    }
+  }
+
+  // 3. Update State
+  activeChordNotes[triggerNote] = targetChordNotes;
   lastTriggeredNote = triggerNote;
 }
 
