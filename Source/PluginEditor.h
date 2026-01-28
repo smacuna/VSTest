@@ -24,6 +24,10 @@ private:
 
   juce::Slider cutoffSlider;
   juce::Slider resSlider;
+  juce::Slider filterEnvSlider;
+
+  juce::TextButton filterEnabledButton;
+
   juce::Slider lowNoteSlider;
   juce::Slider highNoteSlider;
 
@@ -60,6 +64,10 @@ private:
   std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>
       resAttachment;
   std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>
+      filterEnvAttachment;
+  std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment>
+      filterEnabledAttachment;
+  std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>
       lowNoteAttachment;
   std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>
       highNoteAttachment;
@@ -84,8 +92,8 @@ private:
   std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment>
       arpEnabledAttachment;
 
-  juce::ComboBox arpRateBox;
-  std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment>
+  juce::Slider arpRateSlider;
+  std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>
       arpRateAttachment;
   juce::Label arpRateLabel;
 

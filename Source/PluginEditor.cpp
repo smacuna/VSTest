@@ -115,16 +115,15 @@ MySynthAudioProcessorEditor::MySynthAudioProcessorEditor(
           audioProcessor.apvts, "arpEnabled", arpEnabledButton);
 
   // Arp Rate
-  arpRateBox.addItem("1/2", 1);
-  arpRateBox.addItem("1/4", 2);
-  arpRateBox.addItem("1/8", 3);
-  arpRateBox.addItem("1/16", 4);
-  arpRateBox.addItem("1/32", 5);
-  arpRateBox.addItem("1/64", 6);
-  addAndMakeVisible(arpRateBox);
+  // Arp Rate
+  arpRateSlider.setSliderStyle(
+      juce::Slider::SliderStyle::RotaryHorizontalVerticalDrag);
+  arpRateSlider.setTextBoxStyle(juce::Slider::NoTextBox, true, 0, 0);
+  addAndMakeVisible(arpRateSlider);
+
   arpRateAttachment =
-      std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
-          audioProcessor.apvts, "arpRate", arpRateBox);
+      std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
+          audioProcessor.apvts, "arpRate", arpRateSlider);
 
   // Chord Mode Toggle
   setupToggleButton(chordModeToggle);
@@ -132,25 +131,38 @@ MySynthAudioProcessorEditor::MySynthAudioProcessorEditor(
       std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
           audioProcessor.apvts, "chordMode", chordModeToggle);
 
-  // Cutoff Slider
-  cutoffSlider.setSliderStyle(
-      juce::Slider::SliderStyle::RotaryHorizontalVerticalDrag);
-  cutoffSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, true, 50, 25);
+  // Filter Enabled
+  setupToggleButton(filterEnabledButton);
+  filterEnabledAttachment =
+      std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
+          audioProcessor.apvts, "filterEnabled", filterEnabledButton);
+
+  // Cutoff Slider (FREQ)
+  cutoffSlider.setSliderStyle(juce::Slider::SliderStyle::LinearVertical);
+  cutoffSlider.setTextBoxStyle(juce::Slider::NoTextBox, true, 0, 0);
   addAndMakeVisible(cutoffSlider);
 
   cutoffAttachment =
       std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
           audioProcessor.apvts, "cutoff", cutoffSlider);
 
-  // Resonance Slider
-  resSlider.setSliderStyle(
-      juce::Slider::SliderStyle::RotaryHorizontalVerticalDrag);
-  resSlider.setTextBoxStyle(juce::Slider::TextBoxBelow, true, 50, 25);
+  // Resonance Slider (RES)
+  resSlider.setSliderStyle(juce::Slider::SliderStyle::LinearVertical);
+  resSlider.setTextBoxStyle(juce::Slider::NoTextBox, true, 0, 0);
   addAndMakeVisible(resSlider);
 
   resAttachment =
       std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
           audioProcessor.apvts, "resonance", resSlider);
+
+  // Filter Env Slider (ENV)
+  filterEnvSlider.setSliderStyle(juce::Slider::SliderStyle::LinearVertical);
+  filterEnvSlider.setTextBoxStyle(juce::Slider::NoTextBox, true, 0, 0);
+  addAndMakeVisible(filterEnvSlider);
+
+  filterEnvAttachment =
+      std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(
+          audioProcessor.apvts, "filterEnv", filterEnvSlider);
 
   // Low Note Slider
   lowNoteSlider.setSliderStyle(
@@ -249,7 +261,8 @@ void MySynthAudioProcessorEditor::timerCallback() {
 }
 
 void MySynthAudioProcessorEditor::paint(juce::Graphics &g) {
-  const auto backgroundColor = juce::Colour::fromString("FF191919");
+  const auto backgroundColor = juce::Colour::fromString("FF19191"
+                                                        "9");
   const auto fontColor = juce::Colour::fromString("FFF4F6FC");
   const auto borderColor = juce::Colours::black;
 
@@ -296,31 +309,36 @@ void MySynthAudioProcessorEditor::paint(juce::Graphics &g) {
   g.drawRect(arpeggiatorArea, 1.0f);
 
   // Labels
-
   g.setColour(fontColor);
   g.setFont(15.0f);
 
   // Oscilators
-
   auto labelAArea = oscAArea.removeFromTop(40).reduced(5);
   g.drawFittedText("OSC A", labelAArea, juce::Justification::left, 1);
 
   auto labelBArea = oscBArea.removeFromTop(40).reduced(5);
   g.drawFittedText("OSC B", labelBArea, juce::Justification::left, 1);
 
-  const auto filterSliderWidth = filterArea.getWidth() / 4;
+  // Filter Labels
+  // Layout: Enabled (50px) | Freq | Res | Env
+  auto filterLabels = filterArea;
+  filterLabels.removeFromLeft(50); // Skip Enabled button area
 
-  filterArea.removeFromLeft(filterSliderWidth);
-  auto cutoffRect = filterArea.removeFromLeft(filterSliderWidth).reduced(5);
-  auto resRect = filterArea.removeFromLeft(filterSliderWidth).reduced(5);
-  auto envRect = filterArea.removeFromLeft(filterSliderWidth).reduced(5);
+  const auto filterSliderWidth = filterLabels.getWidth() / 3;
 
-  g.drawFittedText("Cutoff", cutoffRect.removeFromTop(20),
-                   juce::Justification::centred, 1);
-  g.drawFittedText("Res", resRect.removeFromTop(20),
-                   juce::Justification::centred, 1);
-  g.drawFittedText("Env", envRect.removeFromTop(20),
-                   juce::Justification::centred, 1);
+  auto freqLabel = filterLabels.removeFromLeft(filterSliderWidth)
+                       .removeFromTop(40)
+                       .reduced(5);
+  auto resLabel = filterLabels.removeFromLeft(filterSliderWidth)
+                      .removeFromTop(40)
+                      .reduced(5);
+  auto envLabel = filterLabels.removeFromLeft(filterSliderWidth)
+                      .removeFromTop(40)
+                      .reduced(5);
+
+  g.drawFittedText("Freq", freqLabel, juce::Justification::centred, 1);
+  g.drawFittedText("Res", resLabel, juce::Justification::centred, 1);
+  g.drawFittedText("Env", envLabel, juce::Justification::centred, 1);
 
   const auto sliderWidth = envelopeArea.getWidth() / 4;
 
@@ -337,6 +355,11 @@ void MySynthAudioProcessorEditor::paint(juce::Graphics &g) {
                    juce::Justification::centred, 1);
   g.drawFittedText("R", releaseRect.removeFromTop(20),
                    juce::Justification::centred, 1);
+
+  // Piano Area Labels (optional)
+  // Maybe draw "Limit" labels near the sliders if needed, or just let sliders
+  // handle it. The user didn't explicitly ask for labels in Piano Area, but
+  // it's good practice. I'll skip for now to keep it clean.
 
   // Chords
   auto chordsButtonsArea = chordsArea.removeFromLeft(moduleWidth);
@@ -455,37 +478,48 @@ void MySynthAudioProcessorEditor::resized() {
   releaseSlider.setBounds(releaseArea.reduced(padding));
 
   // Filter Area (Bottom)
-  const auto filterSliderWidth = filterArea.getWidth() / 4;
+  // Filter Area (Bottom)
+  // Layout: Enabled (50px) | Freq | Res | Env
+  auto filterControls = filterArea;
+  auto enabledArea = filterControls.removeFromLeft(50);
+
+  filterEnabledButton.setBounds(enabledArea.withSizeKeepingCentre(30, 30));
+
+  const auto filterSliderWidth = filterControls.getWidth() / 3;
 
   // Cutoff
-  auto cutoffArea = filterArea.removeFromLeft(filterSliderWidth);
-  cutoffArea.removeFromTop(20);
-  cutoffSlider.setBounds(cutoffArea.reduced(25));
+  auto cutoffArea = filterControls.removeFromLeft(filterSliderWidth);
+  cutoffArea.removeFromTop(20); // Label
+  cutoffSlider.setBounds(cutoffArea.reduced(padding));
 
   // Resonance
-  auto resArea = filterArea.removeFromLeft(filterSliderWidth);
+  auto resArea = filterControls.removeFromLeft(filterSliderWidth);
   resArea.removeFromTop(20);
-  resSlider.setBounds(resArea.reduced(25));
+  resSlider.setBounds(resArea.reduced(padding));
 
-  // Low Note
-  auto lowArea = filterArea.removeFromLeft(filterSliderWidth);
-  lowArea.removeFromTop(20);
-  lowNoteSlider.setBounds(lowArea.reduced(25));
+  // Env
+  auto envArea = filterControls.removeFromLeft(filterSliderWidth);
+  envArea.removeFromTop(20);
+  filterEnvSlider.setBounds(envArea.reduced(padding));
 
-  // High Note
-  auto highArea = filterArea.removeFromLeft(filterSliderWidth);
-  highArea.removeFromTop(20);
-  highNoteSlider.setBounds(highArea.reduced(25));
+  // Piano Area Limits
+  // Place Low Note on left, High Note on right
+  auto pianoLimits = pianoArea.reduced(5);
+  lowNoteSlider.setBounds(pianoLimits.removeFromLeft(80));
+  highNoteSlider.setBounds(pianoLimits.removeFromRight(80));
 
   // Modifiers Area (Bottom)
   auto enableChordModeArea = chordsButtonsArea.removeFromLeft(60);
   chordModeToggle.setBounds(
       enableChordModeArea.removeFromRight(45).withSizeKeepingCentre(30, 30));
   auto modArea = chordsButtonsArea.reduced(10);
-  // We use fixed width for buttons to make them look neat
+  // We use fixed width for
+  // buttons to make them
+  // look neat
   const int buttonWidth = 48;
-  const int buttonSize =
-      buttonWidth - 4; // Accounting for reduced(2) approximately
+  const int buttonSize = buttonWidth - 4; // Accounting for
+                                          // reduced(2)
+                                          // approximately
   const int buttonGap = 4;
 
   auto getSquareBounds = [&](juce::Rectangle<int> r) {
@@ -515,9 +549,11 @@ void MySynthAudioProcessorEditor::resized() {
   ninthButton.setBounds(
       getSquareBounds(seventhModRow.removeFromLeft(buttonWidth)));
 
-  // Arpeggiator Area (Bottom)
+  // Arpeggiator Area
+  // (Bottom)
   auto enableArpArea = arpeggiatorControlsArea.removeFromLeft(60);
   arpEnabledButton.setBounds(
       enableArpArea.removeFromRight(45).withSizeKeepingCentre(30, 30));
   auto rateArea = arpeggiatorControlsArea.reduced(10);
+  arpRateSlider.setBounds(rateArea.withSizeKeepingCentre(50, 50));
 }

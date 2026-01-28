@@ -29,7 +29,10 @@ MySynthAudioProcessor::MySynthAudioProcessor()
   decayParam = apvts.getRawParameterValue("decay");
   sustainParam = apvts.getRawParameterValue("sustain");
   cutoffParam = apvts.getRawParameterValue("cutoff");
+  cutoffParam = apvts.getRawParameterValue("cutoff");
   resonanceParam = apvts.getRawParameterValue("resonance");
+  filterEnvParam = apvts.getRawParameterValue("filterEnv");
+  filterEnabledParam = apvts.getRawParameterValue("filterEnabled");
   chordModeParam = apvts.getRawParameterValue("chordMode");
   lowNoteParam = apvts.getRawParameterValue("lowNote");
   highNoteParam = apvts.getRawParameterValue("highNote");
@@ -74,6 +77,12 @@ MySynthAudioProcessor::createParameterLayout() {
       juce::NormalisableRange<float>(20.0f, 20000.0f, 1.0f, 0.5f), 1000.0f));
   layout.add(std::make_unique<juce::AudioParameterFloat>(
       "resonance", "Resonance", 1.0f, 10.0f, 1.0f));
+
+  layout.add(std::make_unique<juce::AudioParameterFloat>(
+      "filterEnv", "Filter Env", 0.0f, 1.0f, 0.0f));
+
+  layout.add(std::make_unique<juce::AudioParameterBool>(
+      "filterEnabled", "Filter Enabled", true));
 
   juce::StringArray oscChoices;
   oscChoices.add("Sine");

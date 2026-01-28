@@ -30,34 +30,43 @@ public:
     auto radius = (float)juce::jmin(width / 2, height / 2) - 4.0f;
     auto centreX = (float)x + (float)width * 0.5f;
     auto centreY = (float)y + (float)height * 0.5f;
-    auto rx = centreX - radius;
-    auto ry = centreY - radius;
-    auto rw = radius * 2.0f;
     auto angle =
         rotaryStartAngle + sliderPos * (rotaryEndAngle - rotaryStartAngle);
 
-    // Fill
-    g.setColour(juce::Colours::darkgrey);
-    g.drawEllipse(rx, ry, rw, rw, 1.0f);
+    // Filled Circle (Background)
+    g.setColour(juce::Colour::fromString("FFced0ce"));
+    g.fillEllipse(centreX - radius, centreY - radius, radius * 2.0f,
+                  radius * 2.0f);
 
-    juce::Path p;
-    auto pointerLength = radius * 0.33f;
-    auto pointerThickness = 2.0f;
-    p.addRectangle(-pointerThickness * 0.5f, -radius, pointerThickness,
-                   pointerLength);
-    p.applyTransform(
-        juce::AffineTransform::rotation(angle).translated(centreX, centreY));
+    // Track (Background Ring) - Not strictly visible if same color, but kept
+    // for structure or if alpha changed Actually, if we fill the circle, we
+    // might not need the track arc if it's the same color. But let's keep it or
+    // just rely on the fill. If the user wants "claro por dentro", filling the
+    // circle achieves that.
+    juce::Path trackArc;
+    trackArc.addCentredArc(centreX, centreY, radius * 0.85f, radius * 0.85f,
+                           0.0f, rotaryStartAngle, rotaryEndAngle, true);
+    g.setColour(juce::Colour::fromString("FFced0ce"));
+    g.strokePath(trackArc, juce::PathStrokeType(4.0f));
 
-    // Pointer
-    g.setColour(juce::Colours::cyan);
-    g.fillPath(p);
+    // Progress Arc (Value)
+    juce::Path progressArc;
+    progressArc.addCentredArc(centreX, centreY, radius * 0.85f, radius * 0.85f,
+                              0.0f, rotaryStartAngle, angle, true);
+    g.setColour(juce::Colour::fromString("FF191919"));
+    g.strokePath(progressArc, juce::PathStrokeType(4.0f));
 
-    // Arc
-    juce::Path arc;
-    arc.addCentredArc(centreX, centreY, radius * 0.85f, radius * 0.85f, 0.0f,
-                      rotaryStartAngle, angle, true);
-    g.setColour(juce::Colours::cyan.withAlpha(0.8f));
-    g.strokePath(arc, juce::PathStrokeType(4.0f));
+    // // Pointer
+    // juce::Path p;
+    // auto pointerLength = radius * 0.33f;
+    // auto pointerThickness = 2.0f;
+    // p.addRectangle(-pointerThickness * 0.5f, -radius, pointerThickness,
+    //                pointerLength);
+    // p.applyTransform(
+    //     juce::AffineTransform::rotation(angle).translated(centreX, centreY));
+
+    // g.setColour(juce::Colour::fromString("FF191919"));
+    // g.fillPath(p);
   }
 
   void drawButtonBackground(juce::Graphics &g, juce::Button &button,
