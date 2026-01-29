@@ -47,7 +47,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: MySynth_Windows_VST3
-        path: build/MySynth_artifacts/Release/VST3/MySynth.vst3
+        path: build/**/*.vst3
         if-no-files-found: error
 
     - name: Upload VST3 Artifact (macOS)
@@ -55,5 +55,5 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: MySynth_macOS_VST3
-        path: build/MySynth_artifacts/Release/VST3/MySynth.vst3
+        path: build/**/*.vst3
         if-no-files-found: error
