@@ -121,6 +121,7 @@ private:
   };
 
   std::vector<VisualNote> activeVisualNotes;
+  std::set<int> activePianoKeys;
   static constexpr float scrollSpeed = 4.0f;
 
   JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MySynthAudioProcessorEditor)

@@ -327,6 +327,7 @@ void MySynthAudioProcessor::processBlock(juce::AudioBuffer<float> &buffer,
     for (int i = 1; i <= 16; ++i)
       synthesiser.allNotesOff(i, true);
 
+    sendVisualNoteEvent(-1, false); // All Notes Off logic
     activeChordNotes.clear();
     lastTriggeredNote = -1;
   }
@@ -389,6 +390,7 @@ void MySynthAudioProcessor::processBlock(juce::AudioBuffer<float> &buffer,
                     juce::MidiMessage::noteOff(message.getChannel(), noteToOff,
                                                0.0f), // Force off
                     metadata.samplePosition);
+                sendVisualNoteEvent(noteToOff, false);
               }
             }
           }
@@ -422,6 +424,7 @@ void MySynthAudioProcessor::processBlock(juce::AudioBuffer<float> &buffer,
                     juce::MidiMessage::noteOff(message.getChannel(), noteToOff,
                                                0.0f),
                     metadata.samplePosition);
+                sendVisualNoteEvent(noteToOff, false);
               }
             }
           }
@@ -448,6 +451,7 @@ void MySynthAudioProcessor::processBlock(juce::AudioBuffer<float> &buffer,
                     juce::MidiMessage::noteOff(message.getChannel(), oldNote,
                                                velocity),
                     metadata.samplePosition);
+                sendVisualNoteEvent(oldNote, false);
               }
             }
             activeChordNotes.erase(noteNumber);
@@ -468,11 +472,23 @@ void MySynthAudioProcessor::processBlock(juce::AudioBuffer<float> &buffer,
 
       // Pass through other notes
       processedMidi.addEvent(message, metadata.samplePosition);
+      if (message.isNoteOn())
+        sendVisualNoteEvent(message.getNoteNumber(), true);
+      else if (message.isNoteOff())
+        sendVisualNoteEvent(message.getNoteNumber(), false);
     }
 
     midiMessages.swapWith(processedMidi);
+  } else {
+    // Pass-through mode: Scan for visual events
+    for (const auto metadata : midiMessages) {
+      auto msg = metadata.getMessage();
+      if (msg.isNoteOn())
+        sendVisualNoteEvent(msg.getNoteNumber(), true);
+      else if (msg.isNoteOff())
+        sendVisualNoteEvent(msg.getNoteNumber(), false);
+    }
   }
-  // If not Chord Mode, just pass through (midiMessages stays as is)
 
   // 2. Process Arpeggiator
   processArpeggiator(midiMessages, buffer.getNumSamples());
@@ -619,6 +635,7 @@ void MySynthAudioProcessor::processArpeggiator(juce::MidiBuffer &midiMessages,
     if (currentArpNote != -1) {
       midiMessages.addEvent(juce::MidiMessage::noteOff(1, currentArpNote, 0.0f),
                             0);
+      sendVisualNoteEvent(currentArpNote, false);
       currentArpNote = -1;
     }
     return;
@@ -629,6 +646,7 @@ void MySynthAudioProcessor::processArpeggiator(juce::MidiBuffer &midiMessages,
     if (currentArpNote != -1) {
       midiMessages.addEvent(juce::MidiMessage::noteOff(1, currentArpNote, 0.0f),
                             0);
+      sendVisualNoteEvent(currentArpNote, false);
       currentArpNote = -1;
     }
     arpSequenceStep = 0; // Reset sequence when no chord played
@@ -690,6 +708,7 @@ void MySynthAudioProcessor::processArpeggiator(juce::MidiBuffer &midiMessages,
       if (currentArpNote != -1) {
         midiMessages.addEvent(
             juce::MidiMessage::noteOff(1, currentArpNote, 0.0f), triggerOffset);
+        sendVisualNoteEvent(currentArpNote, false);
       }
 
       // 2. Pick New Note (Deterministic based on Seed/Pattern)
@@ -707,6 +726,7 @@ void MySynthAudioProcessor::processArpeggiator(juce::MidiBuffer &midiMessages,
       // 3. Note On New
       midiMessages.addEvent(juce::MidiMessage::noteOn(1, currentArpNote, 1.0f),
                             triggerOffset);
+      sendVisualNoteEvent(currentArpNote, true);
 
       // Reset Phase
       arpPhase = 0;
@@ -811,6 +831,7 @@ void MySynthAudioProcessor::playChord(int triggerNote, float velocity,
       if (!stillPlaying) {
         midiMessages.addEvent(juce::MidiMessage::noteOff(1, oldNote, 0.0f),
                               sampleOffset);
+        sendVisualNoteEvent(oldNote, false);
       }
     }
 
@@ -826,6 +847,7 @@ void MySynthAudioProcessor::playChord(int triggerNote, float velocity,
       if (!alreadyPlaying && !isArpOn) {
         midiMessages.addEvent(juce::MidiMessage::noteOn(1, newNote, velocity),
                               sampleOffset);
+        sendVisualNoteEvent(newNote, true);
       }
     }
 
@@ -835,6 +857,7 @@ void MySynthAudioProcessor::playChord(int triggerNote, float velocity,
     for (int oldNote : currentNotes) {
       midiMessages.addEvent(juce::MidiMessage::noteOff(1, oldNote, 0.0f),
                             sampleOffset);
+      sendVisualNoteEvent(oldNote, false);
     }
 
     // 2. Play ALL target notes
@@ -842,6 +865,7 @@ void MySynthAudioProcessor::playChord(int triggerNote, float velocity,
       for (int note : targetChordNotes) {
         midiMessages.addEvent(juce::MidiMessage::noteOn(1, note, velocity),
                               sampleOffset);
+        sendVisualNoteEvent(note, true);
       }
     }
   }
@@ -853,4 +877,11 @@ void MySynthAudioProcessor::playChord(int triggerNote, float velocity,
 
 juce::AudioProcessor *JUCE_CALLTYPE createPluginFilter() {
   return new MySynthAudioProcessor();
+}
+
+void MySynthAudioProcessor::sendVisualNoteEvent(int note, bool on) {
+  auto writer = noteFifo.write(1);
+  if (writer.blockSize1 > 0) {
+    noteEventBuffer[(size_t)writer.startIndex1] = {note, on};
+  }
 }

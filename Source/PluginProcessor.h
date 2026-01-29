@@ -64,6 +64,14 @@ public:
   juce::AbstractFifo visualFifo{64};
   std::array<int, 64> visualBuffer;
 
+  // FIFO for Piano Key Visualization
+  struct VisualNoteEvent {
+    int note;
+    bool on;
+  };
+  juce::AbstractFifo noteFifo{1024};
+  std::array<VisualNoteEvent, 1024> noteEventBuffer;
+
 private:
   juce::Synthesiser synthesiser;
 
@@ -151,6 +159,8 @@ private:
   // Helper to trigger a chord
   void playChord(int triggerNote, float velocity, int sampleOffset,
                  juce::MidiBuffer &midiMessages, bool isSmartUpdate = false);
+
+  void sendVisualNoteEvent(int note, bool on);
 
   JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MySynthAudioProcessor)
 };

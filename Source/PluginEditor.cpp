@@ -324,6 +324,38 @@ void MySynthAudioProcessorEditor::timerCallback() {
     activeVisualNotes.push_back(newNote);
   }
 
+  // Piano Key Visualization
+  int numNoteEvents = audioProcessor.noteFifo.getNumReady();
+  if (numNoteEvents > 0) {
+    auto noteReader = audioProcessor.noteFifo.read(numNoteEvents);
+    // Block 1
+    for (int i = 0; i < noteReader.blockSize1; ++i) {
+      auto ev =
+          audioProcessor.noteEventBuffer[(size_t)(noteReader.startIndex1 + i)];
+      if (ev.note == -1) {
+        activePianoKeys.clear();
+      } else {
+        if (ev.on)
+          activePianoKeys.insert(ev.note);
+        else
+          activePianoKeys.erase(ev.note);
+      }
+    }
+    // Block 2
+    for (int i = 0; i < noteReader.blockSize2; ++i) {
+      auto ev =
+          audioProcessor.noteEventBuffer[(size_t)(noteReader.startIndex2 + i)];
+      if (ev.note == -1) {
+        activePianoKeys.clear();
+      } else {
+        if (ev.on)
+          activePianoKeys.insert(ev.note);
+        else
+          activePianoKeys.erase(ev.note);
+      }
+    }
+  }
+
   // 2. Update Positions
   for (auto &note : activeVisualNotes) {
     note.x -= scrollSpeed;
@@ -422,8 +454,12 @@ void MySynthAudioProcessorEditor::paint(juce::Graphics &g) {
          noteInOctave == 11);
 
     if (isWhite) {
-      juce::Colour color =
-          (i >= lowNote && i <= highNote) ? activeWhite : inactiveWhite;
+      juce::Colour color = inactiveWhite;
+      if (activePianoKeys.count(i))
+        color = juce::Colours::orange;
+      else if (i >= lowNote && i <= highNote)
+        color = activeWhite;
+
       g.setColour(color);
       g.fillRect(currentX, (float)pianoArea.getY(), keyWidth,
                  (float)pianoArea.getHeight());
@@ -450,8 +486,12 @@ void MySynthAudioProcessorEditor::paint(juce::Graphics &g) {
     if (isWhite) {
       currentX += keyWidth;
     } else {
-      juce::Colour color =
-          (i >= lowNote && i <= highNote) ? activeBlack : inactiveBlack;
+      juce::Colour color = inactiveBlack;
+      if (activePianoKeys.count(i))
+        color = juce::Colours::orange;
+      else if (i >= lowNote && i <= highNote)
+        color = activeBlack;
+
       g.setColour(color);
 
       float xPos = currentX - (blackKeyWidth / 2.0f);
