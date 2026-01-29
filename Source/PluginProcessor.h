@@ -78,6 +78,8 @@ private:
   std::atomic<float> *filterEnvParam = nullptr;
   std::atomic<float> *filterEnabledParam = nullptr;
   std::atomic<float> *chordModeParam = nullptr;
+  std::atomic<float> *retriggerParam = nullptr;
+
   std::atomic<float> *lowNoteParam = nullptr;
   std::atomic<float> *highNoteParam = nullptr;
   std::atomic<float> *oscRangeParam = nullptr;

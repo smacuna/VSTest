@@ -16,11 +16,12 @@ MySynthAudioProcessorEditor::MySynthAudioProcessorEditor(
   startTimerHz(60); // Start repainting at 60fps for visualizer
 
   // Setup Toggle Helper
-  auto setupToggleButton = [this](juce::TextButton &b) {
+  auto setupToggleButton = [this](juce::TextButton &b,
+                                  juce::Colour color =
+                                      juce::Colour::fromString("FFFF4500")) {
     b.setClickingTogglesState(true);
     b.setButtonText("");
-    b.setColour(juce::TextButton::buttonOnColourId,
-                juce::Colour::fromString("FFFF4500"));
+    b.setColour(juce::TextButton::buttonOnColourId, color);
     b.setColour(juce::TextButton::buttonColourId, juce::Colours::darkgrey);
     addAndMakeVisible(b);
   };
@@ -145,6 +146,12 @@ MySynthAudioProcessorEditor::MySynthAudioProcessorEditor(
   chordModeAttachment =
       std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
           audioProcessor.apvts, "chordMode", chordModeToggle);
+
+  // Retrigger Button
+  setupToggleButton(retriggerButton, juce::Colours::orange);
+  retriggerAttachment =
+      std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
+          audioProcessor.apvts, "retriggerMode", retriggerButton);
 
   // Filter Enabled
   setupToggleButton(filterEnabledButton);
@@ -684,28 +691,26 @@ void MySynthAudioProcessorEditor::resized() {
   filterEnvSlider.setBounds(envArea.reduced(padding));
 
   // Piano Area Limits
-  // We have the rangeShiftSlider on the right (68 pixels width as requested)
-  // And the piano visualization takes the rest.
-
   auto shiftControlArea = pianoArea.removeFromRight(68);
   rangeShiftSlider.setBounds(shiftControlArea.reduced(5));
-
-  // The remaining pianoArea is for drawing keys
-  // Store bounds for painting and interaction
   pianoAreaBounds = pianoArea;
 
   // Modifiers Area (Bottom)
   auto enableChordModeArea = chordsButtonsArea.removeFromLeft(60);
-  chordModeToggle.setBounds(
-      enableChordModeArea.removeFromRight(45).withSizeKeepingCentre(30, 30));
+
+  // Top: Chord Toggle
+  auto chordToggleArea = enableChordModeArea.removeFromRight(45);
+  chordModeToggle.setBounds(chordToggleArea.withSizeKeepingCentre(30, 30));
+
+  // Bottom: Retrigger (Smaller)
+  chordToggleArea.removeFromTop(72);
+  auto retriggerArea = chordToggleArea.removeFromRight(45);
+  retriggerButton.setBounds(retriggerArea.withSizeKeepingCentre(30, 18));
+
   auto modArea = chordsButtonsArea.reduced(10);
-  // We use fixed width for
-  // buttons to make them
-  // look neat
+
   const int buttonWidth = 48;
-  const int buttonSize = buttonWidth - 4; // Accounting for
-                                          // reduced(2)
-                                          // approximately
+  const int buttonSize = buttonWidth - 4;
   const int buttonGap = 4;
 
   auto getSquareBounds = [&](juce::Rectangle<int> r) {

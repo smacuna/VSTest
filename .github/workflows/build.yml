@@ -1,0 +1,59 @@
+name: Build VST3
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Install JUCE Dependencies (Linux/Mac if needed)
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libasound2-dev libjack-jackd2-dev \
+            ladspa-sdk \
+            libcurl4-openssl-dev  \
+            libfreetype6-dev \
+            libx11-dev libxcomposite-dev libxcursor-dev libxcursor1 libxext-dev libxinerama-dev libxrandr-dev libxrender-dev \
+            libwebkit2gtk-4.0-dev \
+            libglu1-mesa-dev mesa-common-dev
+
+    - name: Configure CMake
+      shell: bash
+      run: cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
+
+    - name: Build
+      shell: bash
+      run: cmake --build build --config Release --parallel 4
+
+    - name: Upload VST3 Artifact (Windows)
+      if: runner.os == 'Windows'
+      uses: actions/upload-artifact@v4
+      with:
+        name: MySynth_Windows_VST3
+        path: build/MySynth_artifacts/Release/VST3/MySynth.vst3
+        if-no-files-found: error
+
+    - name: Upload VST3 Artifact (macOS)
+      if: runner.os == 'macOS'
+      uses: actions/upload-artifact@v4
+      with:
+        name: MySynth_macOS_VST3
+        path: build/MySynth_artifacts/Release/VST3/MySynth.vst3
+        if-no-files-found: error

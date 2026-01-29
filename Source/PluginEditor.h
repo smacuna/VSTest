@@ -77,9 +77,13 @@ private:
   std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment>
       filterEnabledAttachment;
 
-  juce::TextButton chordModeToggle{"Chord Mode"};
+  juce::TextButton chordModeToggle{""};
   std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment>
       chordModeAttachment;
+
+  juce::TextButton retriggerButton;
+  std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment>
+      retriggerAttachment;
 
   // Modifier Buttons (Indicators)
   juce::TextButton dimButton{"Dim"};

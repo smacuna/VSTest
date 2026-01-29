@@ -34,6 +34,7 @@ MySynthAudioProcessor::MySynthAudioProcessor()
   filterEnvParam = apvts.getRawParameterValue("filterEnv");
   filterEnabledParam = apvts.getRawParameterValue("filterEnabled");
   chordModeParam = apvts.getRawParameterValue("chordMode");
+  retriggerParam = apvts.getRawParameterValue("retriggerMode");
   lowNoteParam = apvts.getRawParameterValue("lowNote");
   highNoteParam = apvts.getRawParameterValue("highNote");
   arpEnabledParam = apvts.getRawParameterValue("arpEnabled");
@@ -127,6 +128,9 @@ MySynthAudioProcessor::createParameterLayout() {
 
   layout.add(std::make_unique<juce::AudioParameterBool>("chordMode",
                                                         "Chord Mode", true));
+
+  layout.add(std::make_unique<juce::AudioParameterBool>("retriggerMode",
+                                                        "Retrigger", false));
 
   layout.add(std::make_unique<juce::AudioParameterInt>(
       juce::ParameterID("lowNote", 1), "Low Limit", 24, 127, 48,
@@ -299,7 +303,11 @@ void MySynthAudioProcessor::processBlock(juce::AudioBuffer<float> &buffer,
     // Re-evaluate the held note with new range (Smart Update)
     // IMPORTANT: Write to processedMidi, NOT midiMessages, to bypass the
     // input loop (modifier detection)
-    playChord(heldTriggerNotes.back(), 1.0f, 0, processedMidi, true);
+
+    bool shouldRetrigger = *retriggerParam > 0.5f;
+    bool useSmartUpdate = !shouldRetrigger;
+
+    playChord(heldTriggerNotes.back(), 1.0f, 0, processedMidi, useSmartUpdate);
   }
 
   // Propagate parameters to voices
@@ -822,7 +830,14 @@ void MySynthAudioProcessor::playChord(int triggerNote, float velocity,
     }
 
   } else {
-    // Standard Behavior: Just play them all
+    // Retrigger Behavior: Kill old notes, play new ones
+    // 1. Stop ALL currently active notes for this trigger
+    for (int oldNote : currentNotes) {
+      midiMessages.addEvent(juce::MidiMessage::noteOff(1, oldNote, 0.0f),
+                            sampleOffset);
+    }
+
+    // 2. Play ALL target notes
     if (!isArpOn) {
       for (int note : targetChordNotes) {
         midiMessages.addEvent(juce::MidiMessage::noteOn(1, note, velocity),
